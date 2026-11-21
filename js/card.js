@@ -1,6 +1,6 @@
 // Save card: transparent PNG, or the krathong floating at one of the spots (1080×1350, IG post size).
-import { SPOTS, STUDIO } from './config.js?v=14';
-import { paintBackdrop, createLife } from './scene.js?v=14';
+import { SPOTS, STUDIO } from './config.js?v=15';
+import { paintBackdrop, createLife } from './scene.js?v=15';
 
 export const BACKDROPS = [{ id: 'none', th: 'ไม่มีพื้นหลัง' }, ...SPOTS.map(s => ({ id: s.id, th: s.name }))];
 

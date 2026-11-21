@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=14';
+import { CHARS } from './characters.js?v=15';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -326,7 +326,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   function restore(s) {
     P.set(s.P); C.set(s.C); TM.set(s.TM); geo.attributes.texMix.needsUpdate = true; baseMat.color.set(s.baseColor); if (s.tpl) st.template = s.tpl;
     if (s.img && texG && s.img.width === texCv.width) { texG.putImageData(s.img, 0, 0); texDirty = true; }
-    clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base);
+    clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base); baseItems();
     geoDirty = true; colDirty = true;
   }
   function pushUndo() { undoStack.push(snap()); while (undoStack.length > (photoTex ? 12 : MAX_UNDO)) undoStack.shift(); redoStack.length = 0; onChange(); }
@@ -485,6 +485,10 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       addDecor(it.kind, topVertex(it.ang || 0, rf, b.R), (ITEM_SCALE[it.kind] || 1) * (it.s || 1) * (it.kind.startsWith('incense') || it.kind === 'candle' ? 1 : R0), it.color || st.itemColor[it.kind] || ITEM_COLOR[it.kind] || st.color, null, true, t + n++ * 70);
     }
     rebuildFlames(); dirty = true;
+  }
+  function baseItems() {   // things standing on the base hide when the base shrinks out from under them
+    for (const d of decor) if (d.base) d.obj.visible = base.visible && Math.hypot(d.base[0], d.base[2]) <= baseScale * .97;
+    dirty = true;
   }
   function rebuildFlames() { flames = []; for (const d of decor) if (d.obj.userData.flames) flames.push(...d.obj.userData.flames); }
 
@@ -654,7 +658,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   }
   function pick(cx, cy) {
     setRay(cx, cy);
-    const h = ray.intersectObjects([clay, base], false)[0];
+    const h = ray.intersectObjects(base.visible ? [clay, base] : [clay], false)[0];
     if (!h) return null;
     const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
     const tm = h.object === clay && h.face ? (TM[h.face.a] + TM[h.face.b] + TM[h.face.c]) / 3 : 0;
@@ -888,7 +892,10 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       if (instant) { view.yaw = y1; view.pitch = .22; resize(); return; }
       camTween = { y0: view.yaw, y1, p0: view.pitch, p1: .22, t0: performance.now() };
     },
-    setBaseSize(v) { baseScale = Math.min(1.35, Math.max(.8, v)); base.scale.set(baseScale, 1, baseScale); dirty = true; },
+    setBaseSize(v) {   // 0 = no base at all; items standing on the base go with it
+      baseScale = Math.min(1.35, Math.max(0, v)); base.visible = baseScale > .04;
+      base.scale.set(Math.max(.001, baseScale), 1, Math.max(.001, baseScale)); baseItems();
+    },
     get baseSize() { return baseScale; },
     placeTop(kind, ang, rf, color, scale) {   // for ready-made krathongs
       let R = 0; for (let i = 0; i < NV; i++) R = Math.max(R, Math.hypot(P[i * 3], P[i * 3 + 2]));

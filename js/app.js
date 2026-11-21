@@ -1,14 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=14';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=14';
-import { createMap } from './map.js?v=14';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=14';
-import * as data from './data.js?v=14';
-import { createRiver } from './river.js?v=14';
-import { icon, iconEl } from './icons.js?v=14';
-import { paintBackdrop, createLife } from './scene.js?v=14';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=14';
-import * as photo from './photo.js?v=14';
+import { SPOTS, STUDIO, READY } from './config.js?v=15';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=15';
+import { createMap } from './map.js?v=15';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=15';
+import * as data from './data.js?v=15';
+import { createRiver } from './river.js?v=15';
+import { icon, iconEl } from './icons.js?v=15';
+import { paintBackdrop, createLife } from './scene.js?v=15';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=15';
+import * as photo from './photo.js?v=15';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -322,7 +322,10 @@ function vslider(el, value, onInput, preview) {
 }
 vslider($('#vb-size'), .45, v => studio?.setSize(v), true);
 vslider($('#vb-strength'), .55, v => studio?.setStrength(.1 + v * .9));
-$('#in-base').addEventListener('input', e => studio?.setBaseSize(+e.target.value));
+$('#in-base').addEventListener('input', e => {
+  if (!studio) return; const v = +e.target.value, had = studio.baseSize > .04;
+  studio.setBaseSize(v); if (had && v <= .04) tip('ไม่มีฐานแล้ว กระทงจะลอยเปล่าๆ เลื่อนกลับได้ถ้าอยากได้ฐานคืน');
+});
 $('#btn-front').addEventListener('click', () => studio?.frontView());
 $('#mz-in').addEventListener('click', () => mapApi?.zoomIn());
 $('#mz-out').addEventListener('click', () => mapApi?.zoomOut());
@@ -410,7 +413,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=14');
+      mod = await import('./sculpt.js?v=15');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);

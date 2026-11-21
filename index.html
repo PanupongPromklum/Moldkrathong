@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/maplibre-gl.css">
-<link rel="stylesheet" href="css/style.css?v=14">
+<link rel="stylesheet" href="css/style.css?v=15">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
 </head>
 <body>
@@ -75,7 +75,7 @@
     <div class="tools" id="tools">
       <div class="tiles" id="subtools"></div>
       <div class="controls" id="sliders">
-        <label class="ctl" id="sl-base" hidden><span>ขนาดฐาน</span><input type="range" min="0.8" max="1.35" step="0.01" value="1" id="in-base"></label>
+        <label class="ctl" id="sl-base" hidden><span>ขนาดฐาน</span><input type="range" min="0" max="1.35" step="0.01" value="1" id="in-base"></label>
       </div>
       <nav class="tabs" id="tabs">
         <button data-tab="template" data-icon="tpl">ทรง</button>
@@ -183,6 +183,6 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
-<script type="module" src="js/app.js?v=14"></script>
+<script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>
