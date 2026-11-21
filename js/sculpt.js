@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=9';
+import { CHARS } from './characters.js?v=10';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -145,7 +145,22 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   const P = geo.attributes.position.array;
   const C = new Float32Array(NV * 3); geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
   geo.computeVertexNormals();
-  const clayMat = glow(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5 }), 'mk-clay');
+  // photo texture support: uv + per-vertex "how much photo shows" (front = 1, sides/back = 0)
+  const UV = new Float32Array(NV * 2); geo.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
+  const TM = new Float32Array(NV); geo.setAttribute('texMix', new THREE.BufferAttribute(TM, 1));
+  let tex = null, texCv = null, texG = null, texK = null, texDirty = false;
+  const clayMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5 });
+  clayMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float texMix;\nvarying float vTexMix;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexMix = texMix;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vTexMix;')
+      .replace('#include <map_fragment>', '#ifdef USE_MAP\n vec4 mkTex = texture2D( map, vMapUv );\n#endif')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n#ifdef USE_MAP\n diffuseColor.rgb = mix( diffuseColor.rgb, mkTex.rgb, vTexMix );\n#endif')
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float mkFr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 2.2);
+      totalEmissiveRadiance += diffuseColor.rgb * 0.07 + vec3(0.13) * mkFr;`);
+  };
+  clayMat.customProgramCacheKey = () => 'mk-clay2';
   const clay = new THREE.Mesh(geo, clayMat); piece.add(clay);
   // neighbours (for smoothing)
   const adjStart = new Uint32Array(NV + 1); let adjList;
@@ -162,7 +177,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
 
   /* -------- state -------- */
   const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'krathong', itemColor: { ...ITEM_COLOR } };
-  const radius = () => .1 + st.size * .5;
+  const radius = () => .05 + Math.pow(st.size, 1.6) * .6;   // finer steps at small sizes
   let decor = [];           // { kind, vi, obj, scale, color, base?: [x,y,z] }
   let flames = [];
   const undoStack = [], redoStack = [];
@@ -202,7 +217,12 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z;
     }
     // photo colours are read from the front view before the shape is fitted (same x/y space as the profile)
-    if (id === 'photo') for (let i = 0; i < NV; i++) { const c = photo.colorAt(P[i * 3], P[i * 3 + 1]); _pc.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace); C[i * 3] = _pc.r; C[i * 3 + 1] = _pc.g; C[i * 3 + 2] = _pc.b; }
+    if (id === 'photo') for (let i = 0; i < NV; i++) {
+      const c = photo.colorAt(P[i * 3], P[i * 3 + 1]); _pc.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace); C[i * 3] = _pc.r; C[i * 3 + 1] = _pc.g; C[i * 3 + 2] = _pc.b;
+      const uv = photo.uvAt(P[i * 3], P[i * 3 + 1]); UV[i * 2] = uv[0]; UV[i * 2 + 1] = uv[1];
+      TM[i] = Math.min(1, Math.max(0, (dirs[i * 3 + 2] - .08) / .32));
+    } else TM.fill(0);
+    geo.attributes.uv.needsUpdate = true; geo.attributes.texMix.needsUpdate = true;
     // fit on the base
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
     for (let i = 0; i < NV; i++) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); z0 = Math.min(z0, P[i * 3 + 2]); z1 = Math.max(z1, P[i * 3 + 2]); }
@@ -212,7 +232,17 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     smoothAll(BLOOMS[id] || id === 'heart' ? 6 : 2, .5);   // soft, rounded edges — no sharp tips
     // colours
     const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : BRAND;
-    if (id === 'photo') colDirty = true; else gradientFill(stops);
+    if (id === 'photo') {
+      colDirty = true;
+      texK = photo.uvScale.u / s;                                        // uv units per world unit (x)
+      texCv = document.createElement('canvas'); texCv.width = photo.texture.width; texCv.height = photo.texture.height;
+      texG = texCv.getContext('2d', { willReadFrequently: true }); texG.drawImage(photo.texture, 0, 0);
+      tex?.dispose(); tex = new THREE.CanvasTexture(texCv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+      clayMat.map = tex; clayMat.needsUpdate = true;
+    } else {
+      if (clayMat.map) { clayMat.map = null; clayMat.needsUpdate = true; tex?.dispose(); tex = null; texCv = texG = null; }
+      gradientFill(stops);
+    }
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
     undoStack.length = 0; redoStack.length = 0;
     if (fromP) { onAction('morph'); morph = { fromP, toP: P.slice(), fromC, toC: C.slice(), t0: performance.now() }; P.set(fromP); C.set(fromC); }
@@ -233,13 +263,14 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
 
   /* -------- undo -------- */
   const decorState = () => decor.map(d => ({ kind: d.kind, vi: d.vi, scale: d.scale, color: d.color, base: d.base }));
-  const snap = () => ({ P: P.slice(), C: C.slice(), decor: decorState(), baseColor: '#' + baseMat.color.getHexString() });
+  const snap = () => ({ P: P.slice(), C: C.slice(), TM: TM.slice(), img: texG ? texG.getImageData(0, 0, texCv.width, texCv.height) : null, decor: decorState(), baseColor: '#' + baseMat.color.getHexString() });
   function restore(s) {
-    P.set(s.P); C.set(s.C); baseMat.color.set(s.baseColor);
+    P.set(s.P); C.set(s.C); TM.set(s.TM); geo.attributes.texMix.needsUpdate = true; baseMat.color.set(s.baseColor);
+    if (s.img && texG && s.img.width === texCv.width) { texG.putImageData(s.img, 0, 0); texDirty = true; }
     clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base);
     geoDirty = true; colDirty = true;
   }
-  function pushUndo() { undoStack.push(snap()); if (undoStack.length > MAX_UNDO) undoStack.shift(); redoStack.length = 0; onChange(); }
+  function pushUndo() { undoStack.push(snap()); while (undoStack.length > (tex ? 12 : MAX_UNDO)) undoStack.shift(); redoStack.length = 0; onChange(); }
   function undo() { if (!undoStack.length) return; redoStack.push(snap()); restore(undoStack.pop()); onChange(); }
   function redo() { if (!redoStack.length) return; undoStack.push(snap()); restore(redoStack.pop()); onChange(); }
 
@@ -386,6 +417,15 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     geoDirty = true;
   }
   const paintCol = new THREE.Color();
+  function texPaint(u, v) {
+    if (!texG) return;
+    const W = texCv.width, H = texCv.height, x = u * W, y = (1 - v) * H, r = Math.max(1.5, radius() * texK * W);
+    const a = .3 + .55 * st.strength, gr = texG.createRadialGradient(x, y, 0, x, y, r);
+    const c = '#' + paintCol.getHexString(THREE.SRGBColorSpace);
+    gr.addColorStop(0, c); gr.addColorStop(.6, c); gr.addColorStop(1, c + '00');
+    texG.globalAlpha = a; texG.fillStyle = gr; texG.beginPath(); texG.arc(x, y, r, 0, 7); texG.fill(); texG.globalAlpha = 1;
+    texDirty = true;
+  }
   function paint(hx, hy, hz, mirror) {
     if (mirror) hx = -hx;
     const R = radius(), R2 = R * R, a0 = .25 + .5 * st.strength;
@@ -509,7 +549,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     const h = ray.intersectObjects([clay, base], false)[0];
     if (!h) return null;
     const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
-    return { obj: h.object === clay ? 'clay' : 'base', point: h.point.clone(), normal: n };
+    return { obj: h.object === clay ? 'clay' : 'base', point: h.point.clone(), normal: n, uv: h.object === clay && h.uv ? h.uv.clone() : null };
   }
   function showCursor(hit) {
     cursor.visible = true; cursor.position.copy(hit.point).addScaledVector(hit.normal, .01);
@@ -530,6 +570,8 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     } else if (st.tab === 'paint' && st.sub === 'brush') {
       if (hit.obj === 'base') { baseMat.color.set(st.color); dirty = true; return; }
       paint(hit.point.x, hit.point.y, hit.point.z, false);
+      if (hit.uv) texPaint(hit.uv.x, hit.uv.y);
+      if (tex && st.sym && Math.abs(hit.point.x) > radius() * .4) { const vi = nearestVertex(-hit.point.x, hit.point.y, hit.point.z); if (TM[vi] > 0) texPaint(UV[vi * 2], UV[vi * 2 + 1]); }
       if (st.sym && Math.abs(hit.point.x) > radius() * .4) paint(hit.point.x, hit.point.y, hit.point.z, true);
     }
     showCursor(hit);
@@ -556,6 +598,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       if (hit.obj === 'base') baseMat.color.set(st.color);
       else if (sub === 'fill') { for (let i = 0; i < NV; i++) { C[i * 3] = paintCol.r; C[i * 3 + 1] = paintCol.g; C[i * 3 + 2] = paintCol.b; } colDirty = true; }
       else gradientFill(BRAND);
+      if (tex && hit.obj !== 'base') { TM.fill(0); geo.attributes.texMix.needsUpdate = true; }   // a full fill covers the photo (undo brings it back)
       dirty = true; return 'tap';
     }
     place(hit); return 'tap';
@@ -668,6 +711,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       for (const d of decor) updateDecor(d);
       geoDirty = false; dirty = true;
     }
+    if (texDirty && tex) { tex.needsUpdate = true; texDirty = false; dirty = true; }
     if (colDirty) { geo.attributes.color.needsUpdate = true; colDirty = false; dirty = true; }
     if (flames.length && frameN % 2 === 0) {
       const s = 1 + Math.sin(t * .013) * .06 + Math.sin(t * .031) * .04;
@@ -704,6 +748,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     setTool(tab, sub) { st.tab = tab; if (sub) st.sub = sub; },
     setColor(hex) { st.color = hex; paintCol.set(hex); if (st.tab === 'incense' && st.sub in st.itemColor) st.itemColor[st.sub] = hex; },
     itemColor(k) { return st.itemColor[k]; },
+    brushPx() { const h = host.clientHeight || 1; return radius() * (h / 2) / (Math.tan(THREE.MathUtils.degToRad(19)) * view.fit); },
     setSize(v) { st.size = v; }, setStrength(v) { st.strength = v; }, setSymmetry(b) { st.sym = b; },
     get state() { return { ...st, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0, decorCount: decor.length }; },
     undo() { select(null); undo(); }, redo() { select(null); redo(); }, reset: applyTemplate,

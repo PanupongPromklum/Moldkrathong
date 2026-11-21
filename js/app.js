@@ -1,14 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=9';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=9';
-import { createMap } from './map.js?v=9';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=9';
-import * as data from './data.js?v=9';
-import { createRiver } from './river.js?v=9';
-import { icon, iconEl } from './icons.js?v=9';
-import { paintBackdrop, createLife } from './scene.js?v=9';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=9';
-import * as photo from './photo.js?v=9';
+import { SPOTS, STUDIO, READY } from './config.js?v=10';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=10';
+import { createMap } from './map.js?v=10';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=10';
+import * as data from './data.js?v=10';
+import { createRiver } from './river.js?v=10';
+import { icon, iconEl } from './icons.js?v=10';
+import { paintBackdrop, createLife } from './scene.js?v=10';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=10';
+import * as photo from './photo.js?v=10';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -160,12 +160,15 @@ const askReset = (title) => ask(title, 'ที่ปั้นไว้จะห�
 function renderTools() {
   const box = $('#subtools'); box.innerHTML = ''; $('#tools').dataset.cat = tab;
   document.querySelector('.swatches')?.remove();
-  const sl = $('#sliders'), slS = $('#sl-size'), slF = $('#sl-strength'), sym = $('#tg-sym');
-  sl.hidden = false; slS.hidden = false; slF.hidden = false; sym.hidden = false; $('#sl-base').hidden = true;
+  // brush bars: size (left) + strength (right) live beside the stage; the panel row only holds base size
+  const sl = $('#sliders'), slS = { hidden: false }, slF = { hidden: false }, sym = { hidden: false };
+  sl.hidden = true; $('#sl-base').hidden = true;
+  queueMicrotask(() => { $('#vb-size').hidden = slS.hidden; $('#vb-strength').hidden = slF.hidden; });
   const st = studio.state;
   const add = (b, fn) => { b.addEventListener('click', fn); box.append(b); };
   if (tab === 'template') {
-    slS.hidden = true; slF.hidden = true; sym.hidden = true; $('#sl-base').hidden = false; $('#in-base').value = studio.baseSize;
+    slS.hidden = true; slF.hidden = true; sl.hidden = false; $('#sl-base').hidden = false; $('#in-base').value = studio.baseSize;
+    $('#vb-size').hidden = true; $('#vb-strength').hidden = true;
     add(tile('จากรูป', st.template === 'photo', iconEl('photo')), () => { $('#photo-file').value = ''; $('#photo-file').click(); });
     for (const t of mod.TEMPLATES) add(tile(t.th, st.template === t.id, tplIcon(t.id)), async () => {
       if (studio.dirtyWork && !(await askReset('เปลี่ยนเป็นทรง' + t.th + '?'))) return;
@@ -195,7 +198,7 @@ function renderTools() {
     box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
     add(tile('ล้างทั้งหมด', false, iconEl('trash'), 'danger'), async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); });
   }
-  if (tab === 'paint' && st.sub !== 'brush') slF.hidden = true;
+  if (tab === 'paint' && st.sub !== 'brush') { slF.hidden = true; slS.hidden = true; }
   if (tab === 'shape' && st.sub === 'slice') { slS.hidden = true; slF.hidden = true; }
   if (tab === 'paint' || tab === 'decor' || (tab === 'incense' && studio.itemColor(st.sub))) {
     if (tab === 'paint' && st.sub === 'gradient') return;
@@ -224,8 +227,20 @@ function setTab(t) {
   setHelper(t); renderTools();
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => studio && setTab(b.dataset.tab)));
-$('#in-size').addEventListener('input', e => studio?.setSize(+e.target.value));
-$('#in-strength').addEventListener('input', e => studio?.setStrength(+e.target.value));
+function vslider(el, value, onInput, preview) {
+  const track = el.querySelector('.vb-track'); let drag = false;
+  const set = (v) => { v = Math.min(1, Math.max(0, v)); track.style.setProperty('--v', v); track.setAttribute('aria-valuenow', Math.round(v * 100)); return v; };
+  const at = (y) => { const r = track.getBoundingClientRect(); return 1 - (y - r.top - 20) / (r.height - 40); };
+  const showPrev = () => { if (!preview || !studio) return; const p = $('#brush-preview'), d = Math.max(6, studio.brushPx() * 2); p.style.width = p.style.height = d + 'px'; p.hidden = false; };
+  set(value);
+  track.addEventListener('pointerdown', (e) => { e.preventDefault(); drag = true; track.classList.add('drag'); track.setPointerCapture?.(e.pointerId); onInput(set(at(e.clientY))); showPrev(); });
+  track.addEventListener('pointermove', (e) => { if (!drag) return; onInput(set(at(e.clientY))); showPrev(); });
+  const end = () => { drag = false; track.classList.remove('drag'); $('#brush-preview').hidden = true; };
+  track.addEventListener('pointerup', end); track.addEventListener('pointercancel', end);
+  track.addEventListener('keydown', (e) => { const d = e.key === 'ArrowUp' ? .05 : e.key === 'ArrowDown' ? -.05 : 0; if (d) { e.preventDefault(); onInput(set(+track.style.getPropertyValue('--v') + d)); } });
+}
+vslider($('#vb-size'), .45, v => studio?.setSize(v), true);
+vslider($('#vb-strength'), .55, v => studio?.setStrength(.1 + v * .9));
 $('#in-base').addEventListener('input', e => studio?.setBaseSize(+e.target.value));
 $('#btn-front').addEventListener('click', () => studio?.frontView());
 $('#mz-in').addEventListener('click', () => mapApi?.zoomIn());
@@ -263,7 +278,7 @@ $('#photo-x').addEventListener('click', () => { $('#modal-photo').hidden = true;
 $('#photo-use').addEventListener('click', async () => {
   if (!ph?.m || !studio) return;
   if (studio.dirtyWork && !(await ask('ใช้ทรงจากรูปนี้?', 'ที่ปั้นไว้จะหายทั้งหมด', 'ใช้เลย'))) return;
-  const shape = photo.toShape(ph.an, ph.m);
+  const shape = photo.toShape(ph.an, ph.m, ph.img);
   $('#modal-photo').hidden = true;
   studio.reset('photo', shape); studio.frontView(); renderTools();
   tip('ได้ทรงจากรูปแล้ว ปั้นหรือแต่งต่อได้เลย');
@@ -291,7 +306,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=9');
+      mod = await import('./sculpt.js?v=10');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);

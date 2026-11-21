@@ -67,6 +67,10 @@ function boxBlur(src, w, h) {
 export function mask(an, T) {
   const { w, h, dist } = an, n = w * h, m = new Uint8Array(n);
   for (let i = 0; i < n; i++) m[i] = dist[i] > T ? 1 : 0;
+  // close small gaps (cartoon outlines split ears, arms… from the body): grow, then shrink back later
+  const R = Math.max(2, Math.round(Math.max(w, h) / 85));
+  const grown = morph(m, w, h, R, true);
+  m.set(grown);
   // keep the biggest connected piece
   const lab = new Int32Array(n), q = new Int32Array(n); let bestLab = 0, bestSize = 0, cur = 0;
   for (let s = 0; s < n; s++) {
@@ -83,6 +87,7 @@ export function mask(an, T) {
   }
   if (bestSize < n * .02) return null;
   for (let i = 0; i < n; i++) m[i] = lab[i] === bestLab ? 1 : 0;
+  m.set(morph(m, w, h, R, false));
   // fill holes: anything not reachable from the border through background is inside
   const out = new Uint8Array(n); let head = 0, tail = 0;
   const push = (p) => { if (!m[p] && !out[p]) { out[p] = 1; q[tail++] = p; } };
@@ -95,7 +100,7 @@ export function mask(an, T) {
 }
 
 /** Turn a mask into a radial profile + colour lookup in profile space (x right, y up, |r| ≤ 1). */
-export function toShape(an, m) {
+export function toShape(an, m, img) {
   const { w, h, data } = an;
   let cx = 0, cy = 0, cnt = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (m[y * w + x]) { cx += x; cy += y; cnt++; }
@@ -145,8 +150,28 @@ export function toShape(an, m) {
     for (let i = 0; i < 3; i++) o[i] = ((a[i] * (1 - tx) + b[i] * tx) * (1 - ty) + (c[i] * (1 - tx) + d[i] * tx) * ty) / 255;
     return o;
   };
-  const aspect = 1;
-  return { profile: prof, colorAt, palette: pal, aspect };
+  // sharp texture: the photo inside the outline, the spread pastel colours outside it (no background at the rim)
+  const TS = 512, tk = TS / Math.max(w, h), tw = Math.round(w * tk), th = Math.round(h * tk);
+  const texture = document.createElement('canvas'); texture.width = tw; texture.height = th;
+  const tg = texture.getContext('2d');
+  const grid = document.createElement('canvas'); grid.width = gw; grid.height = gh;
+  const gg = grid.getContext('2d'), gid = gg.createImageData(gw, gh);
+  for (let k = 0; k < gw * gh; k++) { gid.data[k * 4] = col[k * 3]; gid.data[k * 4 + 1] = col[k * 3 + 1]; gid.data[k * 4 + 2] = col[k * 3 + 2]; gid.data[k * 4 + 3] = 255; }
+  gg.putImageData(gid, 0, 0);
+  tg.imageSmoothingEnabled = true; tg.drawImage(grid, 0, 0, gw * gs * tk, gh * gs * tk);
+  if (img) {
+    const layer = document.createElement('canvas'); layer.width = tw; layer.height = th;
+    const lg = layer.getContext('2d'); lg.drawImage(img, 0, 0, tw, th);
+    const mk = document.createElement('canvas'); mk.width = w; mk.height = h;
+    const mg = mk.getContext('2d'), mid = mg.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { mid.data[i * 4 + 3] = m[i] ? 255 : 0; }
+    mg.putImageData(mid, 0, 0);
+    lg.globalCompositeOperation = 'destination-in'; lg.imageSmoothingEnabled = true; lg.drawImage(mk, 0, 0, tw, th);
+    tg.drawImage(layer, 0, 0);
+  }
+  /** profile x, y → texture uv (v up, as three.js expects) */
+  const uvAt = (x, y) => [(cx + x * R) / w, 1 - (cy - y * R) / h];
+  return { profile: prof, colorAt, palette: pal, texture, uvAt, uvScale: { u: R / w, v: R / h } };
 }
 
 /** Draw the photo with the chosen object lit and an outline, for the preview. */
@@ -167,4 +192,20 @@ export function drawPreview(cv, img, an, m) {
   }
   og.putImageData(id, 0, 0);
   g.imageSmoothingEnabled = true; g.drawImage(ov, 0, 0, cv.width, cv.height);
+}
+
+/** square dilate (grow=true) or erode (grow=false) with radius r, separable for speed */
+function morph(src, w, h, r, grow) {
+  const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = grow ? 0 : 1;
+    for (let d = -r; d <= r; d++) { const xx = x + d; const p = xx < 0 || xx >= w ? (grow ? 0 : 1) : src[y * w + xx]; if (grow ? p : !p) { v = grow ? 1 : 0; break; } }
+    tmp[y * w + x] = v;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = grow ? 0 : 1;
+    for (let d = -r; d <= r; d++) { const yy = y + d; const p = yy < 0 || yy >= h ? (grow ? 0 : 1) : tmp[yy * w + x]; if (grow ? p : !p) { v = grow ? 1 : 0; break; } }
+    out[y * w + x] = v;
+  }
+  return out;
 }
