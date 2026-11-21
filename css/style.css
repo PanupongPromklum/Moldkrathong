@@ -70,7 +70,7 @@ svg { fill: currentColor; }
 .elemnt-badge { position: absolute; left: 8px; bottom: calc(8px + var(--safe-b)); font: 500 11px 'Poppins', sans-serif; color: #dfe3ff; text-decoration: none; background: rgba(17,21,44,.7); border-radius: 6px; padding: 3px 7px; z-index: 2; }
 .maplibregl-ctrl-bottom-right { bottom: var(--safe-b); }
 .maplibregl-ctrl-attrib { font-size: 10px; }
-.pin { display: flex; flex-direction: column; align-items: center; position: relative; padding: 0; }
+.pin { display: flex; flex-direction: column; align-items: center; padding: 0; }
 .pin-glow { position: absolute; top: 8px; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle, rgba(235,146,179,.55), rgba(155,176,222,0) 70%); animation: pulse 2.4s ease-in-out infinite; pointer-events: none; }
 .pin-icon { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,.2), 0 6px 18px rgba(0,0,0,.35); position: relative; transition: transform .25s var(--ease); }
 .pin:active .pin-icon { transform: scale(.92); }
