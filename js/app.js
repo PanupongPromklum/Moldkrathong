@@ -2,7 +2,9 @@
 import { SPOTS, STUDIO } from './config.js';
 import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js';
 import { createMap } from './map.js';
-import { makeCard, BACKDROPS } from './card.js';
+import { makeCard, makeStory, BACKDROPS } from './card.js';
+import * as data from './data.js';
+import { createRiver } from './river.js';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); };
@@ -47,7 +49,7 @@ function krathongArt() {
 let mapApi = null;
 $('#btn-start').addEventListener('click', async () => {
   $('#intro').classList.add('hide');
-  if (!mapApi) mapApi = await createMap($('#map'), { onSpot: openSpot, onStudio: openStudioInfo });
+  if (!mapApi) { mapApi = await createMap($('#map'), { onSpot: openSpot, onStudio: openStudioInfo }); refreshCounts(); }
 });
 
 /* ---------------- map sheet ---------------- */
@@ -64,12 +66,14 @@ function openSpot(spot) {
     <div class="sheet-actions">
       <button class="btn-primary" id="act-sculpt">ปั้นกระทงเอง</button>
       <div class="row">
-        <button class="btn-ghost" disabled>รับกระทงฟรี <span class="soon">เร็วๆ นี้</span></button>
-        <button class="btn-ghost" disabled>ดูแม่น้ำ <span class="soon">เร็วๆ นี้</span></button>
+        <button class="btn-ghost" id="act-free">รับกระทงฟรี</button>
+        <button class="btn-ghost" id="act-river">ดูแม่น้ำ</button>
       </div>
     </div>`);
   if (spot.studio) $('.sheet-actions').insertAdjacentHTML('beforeend', `<a class="link-soft" href="${STUDIO.ig}" target="_blank" rel="noopener">ทีมที่ทำเกมนี้ · ${STUDIO.igName}</a>`);
   $('#act-sculpt').addEventListener('click', () => openStudio(spot));
+  $('#act-free').addEventListener('click', () => openFree(spot));
+  $('#act-river').addEventListener('click', () => openRiver(spot));
 }
 function openStudioInfo(s) {
   openSheet(s.name, 'ทีมที่ปั้นเกมนี้', 'gumdrop', `
@@ -247,7 +251,7 @@ $('#btn-redo').addEventListener('click', () => studio?.redo());
 function syncButtons() { if (!studio) return; const s = studio.state; $('#btn-undo').disabled = !s.canUndo; $('#btn-redo').disabled = !s.canRedo; }
 
 async function openStudio(spot) {
-  $('#sheet').hidden = true;
+  $('#sheet').hidden = true; currentSpot = spot;
   $('#studio-spot').textContent = spot.name;
   show('screen-studio');
   history.pushState({ s: 'studio' }, '');
@@ -269,7 +273,11 @@ async function openStudio(spot) {
 }
 function closeStudio() { studio?.deselect?.(); studio?.pause(); show('screen-map'); mapApi?.resize(); }
 $('#btn-back').addEventListener('click', () => history.back());
-window.addEventListener('popstate', () => { if ($('#screen-studio').classList.contains('active')) closeStudio(); $('#modal-done').hidden = true; });
+window.addEventListener('popstate', () => {
+  document.querySelectorAll('.modal').forEach(m => { m.hidden = true; });
+  if ($('#screen-studio').classList.contains('active')) closeStudio();
+  else if ($('#screen-river').classList.contains('active')) closeRiver();
+});
 
 /* ---------------- done: save with or without a backdrop ---------------- */
 let lastShot = null, bg = 'none', lastCard = null;
@@ -292,6 +300,7 @@ $('#btn-done').addEventListener('click', async () => {
   setHelper('done');
 });
 $('#done-back').addEventListener('click', () => { $('#modal-done').hidden = true; });
+$('#done-float').addEventListener('click', () => { $('#modal-done').hidden = true; openWish(lastShot, currentSpot); });
 $('#done-save').addEventListener('click', () => {
   if (!lastCard) return;
   lastCard.toBlob(async (blob) => {
@@ -301,6 +310,140 @@ $('#done-save').addEventListener('click', () => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   }, 'image/png');
 });
+
+/* ---------------- counts on the map ---------------- */
+let countsCache = {};
+async function refreshCounts() {
+  try { countsCache = await data.counts(); } catch (_) { return; }
+  document.querySelectorAll('.pin').forEach(p => {
+    const id = p.dataset.spot; if (!id) return;
+    let n = p.querySelector('.pin-count'); if (!n) { n = document.createElement('small'); n.className = 'pin-count'; p.querySelector('.pin-label').append(n); }
+    n.textContent = 'ลอยแล้ว ' + (countsCache[id] || 0);
+  });
+}
+
+/* ---------------- wish + float ---------------- */
+let wishShot = null, wishSpot = null;
+function toUploadBlob(canvasOrImg) {
+  const max = 420, w = canvasOrImg.width || canvasOrImg.naturalWidth, h = canvasOrImg.height || canvasOrImg.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(canvasOrImg, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(b => b && b.type === 'image/webp' ? res(b) : c.toBlob(res, 'image/png'), 'image/webp', .86));
+}
+function openWish(shot, spot) {
+  wishShot = shot; wishSpot = spot;
+  $('#wish-img').src = shot.toDataURL ? shot.toDataURL('image/png') : shot.src;
+  $('#wish-where').textContent = 'ลอยที่ ' + spot.name;
+  $('#wish-go').disabled = false; $('#wish-go').textContent = 'ลอยเลย';
+  $('#modal-wish').hidden = false;
+}
+$('#wish-text').addEventListener('input', e => { $('#wish-count').textContent = e.target.value.length + '/60'; });
+$('#wish-pub').addEventListener('click', e => { const b = e.currentTarget, on = !b.classList.contains('on'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.querySelector('span').textContent = on ? 'ให้คนอื่นเห็นคำอธิษฐาน' : 'อธิษฐานในใจ (คนอื่นไม่เห็น)'; });
+$('#wish-back').addEventListener('click', () => { $('#modal-wish').hidden = true; });
+let myLast = null;
+$('#wish-go').addEventListener('click', async () => {
+  const go = $('#wish-go'); go.disabled = true; go.textContent = 'กำลังลอย…';
+  try {
+    const blob = await toUploadBlob(wishShot);
+    const row = await data.float({ spot: wishSpot.id, blob, nickname: $('#wish-name').value, wish: $('#wish-text').value, isPublic: $('#wish-pub').classList.contains('on') });
+    myLast = { row, shot: wishShot, spot: wishSpot, nickname: $('#wish-name').value.trim(), wish: $('#wish-pub').classList.contains('on') ? $('#wish-text').value.trim() : '' };
+    $('#modal-wish').hidden = true; $('#wish-text').value = ''; $('#wish-count').textContent = '0/60';
+    if ($('#screen-studio').classList.contains('active')) { studio?.pause(); history.replaceState({ s: 'river' }, ''); } else history.pushState({ s: 'river' }, '');
+    await openRiver(wishSpot, { own: row, ownSrc: $('#wish-img').src, noPush: true });
+  } catch (err) {
+    console.error(err); go.disabled = false; go.textContent = 'ลองอีกครั้ง';
+    toast('ลอยไม่สำเร็จ ลองใหม่อีกครั้งนะ');
+  }
+});
+
+/* ---------------- free krathong ---------------- */
+let freeSpot = null;
+function openFree(spot) {
+  freeSpot = spot; $('#sheet').hidden = true;
+  $('#free-grid').innerHTML = CHAR_KEYS.map(k => `<button data-k="${k}"><img src="assets/free/${k}.png" alt="กระทง${CHARS[k].name}"><span>${CHARS[k].name}</span></button>`).join('');
+  $('#modal-free').hidden = false;
+}
+$('#free-grid').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const im = b.querySelector('img'); if (!im.complete || !im.naturalWidth) return;
+  $('#modal-free').hidden = true; openWish(im, freeSpot);
+});
+$('#free-back').addEventListener('click', () => { $('#modal-free').hidden = true; });
+
+/* ---------------- river ---------------- */
+let river = null, riverSpot = null, riverPoll = 0, newest = null, tapped = null;
+async function openRiver(spot, opts = {}) {
+  riverSpot = spot; currentSpot = spot; $('#sheet').hidden = true;
+  show('screen-river'); if (!opts.noPush) history.pushState({ s: 'river' }, '');
+  $('#river-name').textContent = spot.name; $('#k-info').hidden = true;
+  $('#river-share').hidden = !(myLast && myLast.spot.id === spot.id);
+  if (!river) river = createRiver($('#river'), { onTap: showInfo });
+  river.setSpot(spot.id); river.start();
+  let rows = [];
+  try { rows = await data.list(spot.id); } catch (err) { console.error(err); toast('โหลดกระทงไม่ได้ ลองใหม่อีกที'); }
+  if (opts.own) rows = rows.filter(r => r.id !== opts.own.id);
+  river.setItems(rows, r => data.imageUrl(r.image_path));
+  newest = rows[0]?.created_at || null;
+  if (opts.own) { river.addOwn(opts.own, opts.ownSrc); newest = opts.own.created_at; setTimeout(() => toast('ลอยแล้ว! ชวนเพื่อนมาลอยด้วยกัน', 'แชร์', shareStory), 1800); }
+  updateCount(rows.length + (opts.own ? 1 : 0));
+  clearInterval(riverPoll);
+  riverPoll = setInterval(pollRiver, 12000);
+}
+async function pollRiver() {
+  if (document.hidden || !riverSpot) return;
+  try { const rows = await data.list(riverSpot.id, newest); if (rows.length) { river.addItems(rows, r => data.imageUrl(r.image_path)); newest = rows[0].created_at; refreshCounts().then(() => updateCount()); } } catch (_) { /* try again later */ }
+}
+function updateCount(fallback) {
+  const n = Math.max(countsCache[riverSpot.id] || 0, fallback || 0);
+  $('#river-count').textContent = 'ลอยแล้ว ' + n.toLocaleString('th-TH') + ' ใบ';
+  $('#river-empty').hidden = n > 0;
+}
+function closeRiver() { river?.stop(); clearInterval(riverPoll); riverSpot = null; show('screen-map'); mapApi?.resize(); refreshCounts(); }
+$('#river-back').addEventListener('click', () => history.back());
+$('#river-sculpt').addEventListener('click', () => { const sp = riverSpot; closeRiver(); history.replaceState(null, ''); openStudio(sp); });
+$('#river-free').addEventListener('click', () => openFree(riverSpot));
+$('#river-share').addEventListener('click', () => shareStory());
+
+const ago = (iso) => { const m = Math.max(0, (Date.now() - new Date(iso)) / 60000); return m < 1 ? 'เมื่อสักครู่' : m < 60 ? Math.floor(m) + ' นาทีที่แล้ว' : m < 1440 ? Math.floor(m / 60) + ' ชั่วโมงที่แล้ว' : Math.floor(m / 1440) + ' วันที่แล้ว'; };
+function showInfo(row, it) {
+  const box = $('#k-info');
+  if (!row) { box.hidden = true; tapped = null; return; }
+  tapped = row;
+  $('#k-name').textContent = row.nickname || 'ไม่ประสงค์ออกนาม';
+  $('#k-wish').textContent = row.wish ? '“' + row.wish + '”' : 'อธิษฐานในใจ';
+  $('#k-time').textContent = ago(row.created_at) + (it?.own ? ' · กระทงของคุณ' : '');
+  $('#k-report').hidden = !!it?.own;
+  $('#k-report').textContent = 'รายงานกระทงไม่เหมาะสม'; $('#k-report').disabled = false;
+  box.hidden = false;
+}
+$('#k-report').addEventListener('click', async () => {
+  if (!tapped) return;
+  if (!(await ask('รายงานกระทงนี้?', 'ถ้ามีคนรายงานครบ 3 คน กระทงจะถูกซ่อนจนกว่าแอดมินจะตรวจ', 'รายงาน'))) return;
+  try {
+    const r = await data.report(tapped.id);
+    $('#k-report').textContent = r.already ? 'คุณรายงานไปแล้ว' : 'ขอบคุณที่ช่วยดูแลนะ'; $('#k-report').disabled = true;
+    if (r.hidden) { river.remove(tapped.id); setTimeout(() => { $('#k-info').hidden = true; }, 900); }
+  } catch (_) { toast('ส่งรายงานไม่สำเร็จ'); }
+});
+
+/* ---------------- toast + share ---------------- */
+function toast(text, action, fn) {
+  const t = $('#toast'); t.innerHTML = ''; t.append(text);
+  if (action) { const b = document.createElement('button'); b.textContent = action; b.onclick = () => { t.hidden = true; fn(); }; t.append(b); }
+  t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, action ? 7000 : 3000);
+}
+async function shareStory() {
+  if (!myLast) return;
+  const url = location.host + location.pathname.replace(/index\.html$/, '');
+  const c = await makeStory(myLast.shot, myLast.spot, { nickname: myLast.nickname, wish: myLast.wish, url });
+  c.toBlob(async (blob) => {
+    const file = new File([blob], 'moldkrathong-story.png', { type: 'image/png' });
+    const shareData = { files: [file], title: 'Moldkrathong', text: 'มาลอยกระทงด้วยกัน ' + location.href.split('#')[0] };
+    if (navigator.canShare?.(shareData)) { try { await navigator.share(shareData); return; } catch (_) { /* fall back */ } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'moldkrathong-story.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('บันทึกรูปแล้ว เอาไปลงสตอรี่ IG ได้เลย');
+  }, 'image/png');
+}
 
 // keep the page from zooming on double tap (iOS)
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });

@@ -29,7 +29,7 @@ export async function createMap(el, { onSpot, onStudio }) {
   const markers = [];
   for (const s of SPOTS) {
     const b = document.createElement('button');
-    b.className = 'pin'; b.type = 'button'; b.setAttribute('aria-label', 'ลอยกระทงที่ ' + s.name);
+    b.className = 'pin'; b.type = 'button'; b.dataset.spot = s.id; b.setAttribute('aria-label', 'ลอยกระทงที่ ' + s.name);
     b.innerHTML = `<span class="pin-glow"></span><span class="pin-icon">${s.studio ? '' : KRATHONG_SVG}</span><span class="pin-label">${s.name}</span>`;
     if (s.studio) { b.classList.add('pin-studio'); b.querySelector('.pin-icon').append(charCanvas('gumdrop', { size: 40, mood: 'smile' })); }
     b.addEventListener('click', (e) => { e.stopPropagation(); map.easeTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 13.4), duration: 600 }); onSpot(s); });

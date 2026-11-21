@@ -1,6 +1,12 @@
 // Places, links and map settings. Change here; no other file needs editing.
 export const GAME_NAME = 'Moldkrathong';
 
+// Supabase (leave empty = local test mode, saves only in this browser)
+export const SUPABASE = {
+  url: 'https://rrnbvucexpsrmqrxdwdh.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJybmJ2dWNleHBzcm1xcnhkd2RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyMzQyMjAsImV4cCI6MjExMDgxMDIyMH0.oAqdaqxTn118GcVODplT23A7e5cnc738wYAFcJ_vP04', // public anon key (safe to ship)
+};
+
 export const MAP_STYLE = 'https://carto.elemnt.earth/2026-06-22_deep-cool-dark/style.json';
 
 export const SPOTS = [

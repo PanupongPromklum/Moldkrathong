@@ -661,6 +661,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
     undo() { select(null); undo(); }, redo() { select(null); redo(); }, reset: applyTemplate,
     scaleAll, deleteSelected, deselect() { select(null); },
     _decorScreen() { return decor.map(screenOf); },
+    gradient(stops) { gradientFill(stops); },
     get dirtyWork() { return undoStack.length > 0; },
     clearDecor() { if (!decor.length) return; pushUndo(); clearDecorObjs(); onChange(); },
     frontView() { view.yaw = 0; view.pitch = .22; resize(); },

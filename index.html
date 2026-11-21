@@ -77,8 +77,53 @@
       <div class="bg-chips" id="bg-chips"></div>
       <div class="row">
         <button class="btn-ghost" id="done-back">ปั้นต่อ</button>
-        <button class="btn-primary" id="done-save">บันทึกรูป PNG</button>
+        <button class="btn-ghost" id="done-save">บันทึกรูป</button>
       </div>
+      <button class="btn-primary wide" id="done-float">ไปลอยกระทง</button>
+    </div>
+  </div>
+
+  <!-- ============ RIVER ============ -->
+  <section id="screen-river" class="screen" aria-label="แม่น้ำ">
+    <div class="river" id="river">
+      <header class="studio-top river-top">
+        <button class="icon-btn" id="river-back" aria-label="กลับไปแผนที่"><svg viewBox="0 0 24 24"><path d="M15.7 4.3a1 1 0 0 1 0 1.4L9.4 12l6.3 6.3a1 1 0 1 1-1.4 1.4l-7-7a1 1 0 0 1 0-1.4l7-7a1 1 0 0 1 1.4 0z"/></svg></button>
+        <div class="studio-title"><small id="river-count">ลอยแล้ว 0 ใบ</small><b id="river-name"></b></div>
+        <button class="icon-btn" id="river-share" aria-label="แชร์" hidden><svg viewBox="0 0 24 24"><path d="M12 2l4.5 4.5-1.4 1.4L13 5.8V15h-2V5.8L8.9 7.9 7.5 6.5zM5 11h2v8h10v-8h2v10H5z"/></svg></button>
+      </header>
+      <div class="river-empty" id="river-empty" hidden>ยังไม่มีใครลอยที่นี่ มาเป็นคนแรกกัน!</div>
+      <div class="k-info glass" id="k-info" hidden>
+        <b id="k-name"></b><p id="k-wish"></p><small id="k-time"></small>
+        <button class="link-report" id="k-report">รายงานกระทงไม่เหมาะสม</button>
+      </div>
+      <div class="toast glass" id="toast" hidden></div>
+      <div class="river-actions">
+        <button class="btn-ghost" id="river-free">รับกระทงฟรี</button>
+        <button class="btn-primary" id="river-sculpt">ปั้นกระทง</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WISH ============ -->
+  <div class="modal" id="modal-wish" hidden>
+    <div class="modal-card">
+      <img class="wish-img" id="wish-img" alt="">
+      <h2>อธิษฐานก่อนลอย</h2>
+      <p class="muted" id="wish-where"></p>
+      <input class="field" id="wish-name" maxlength="20" placeholder="ชื่อเล่น (ไม่ใส่ก็ได้)" autocomplete="off">
+      <div class="field-wrap"><textarea class="field" id="wish-text" maxlength="60" rows="2" placeholder="ขอให้…"></textarea><span class="count" id="wish-count">0/60</span></div>
+      <button class="toggle on wish-pub" id="wish-pub" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 5c5 0 9 4.5 10 7-1 2.5-5 7-10 7S3 14.5 2 12c1-2.5 5-7 10-7zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg><span>ให้คนอื่นเห็นคำอธิษฐาน</span></button>
+      <div class="row"><button class="btn-ghost" id="wish-back">กลับ</button><button class="btn-primary" id="wish-go">ลอยเลย</button></div>
+    </div>
+  </div>
+
+  <!-- ============ FREE KRATHONG ============ -->
+  <div class="modal" id="modal-free" hidden>
+    <div class="modal-card">
+      <h2>เลือกกระทงฟรี</h2>
+      <p class="muted">ก้อนนุ่มปั้นไว้ให้แล้ว เลือกได้ 1 ใบ</p>
+      <div class="free-grid" id="free-grid"></div>
+      <button class="btn-ghost wide" id="free-back">ปิด</button>
     </div>
   </div>
 

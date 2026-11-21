@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Moldkrathong · แอดมิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&family=Poppins:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  html, body { overflow: auto; }
+  body { background: radial-gradient(100% 50% at 50% 0%, #232a62, var(--night)); min-height: 100%; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: calc(16px + var(--safe-t)) 14px 40px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+  .bar select, .bar input { height: var(--ctl); border-radius: var(--r-pill); background: var(--glass-bg); border: 1px solid var(--glass-brd); color: var(--text); font: inherit; padding: 0 14px; }
+  .bar select option { color: #222; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .card { background: var(--glass-bg); border: 1px solid var(--glass-brd); border-radius: 20px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .card.hid { border-color: #EB92B3; background: rgba(235,146,179,.08); }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #1a2050; border-radius: 14px; }
+  .card b { font-size: var(--fs-s); }
+  .card p { margin: 0; font-size: var(--fs-xs); color: var(--muted); word-break: break-word; }
+  .card .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+  .card button { height: 32px; border-radius: var(--r-pill); background: var(--glass-bg-2); font-size: 12px; }
+  .card button.red { background: #EB92B3; color: var(--ink); font-weight: 600; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: rgba(235,146,179,.25); color: #fff; }
+  .login { max-width: 340px; margin: 18vh auto 0; text-align: center; }
+  .login .field { text-align: center; }
+  #msg { color: #EB92B3; min-height: 20px; font-size: var(--fs-xs); }
+  .stats { color: var(--muted); font-size: var(--fs-xs); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="login" id="login">
+    <div class="brand big">Mold<span>krathong</span></div>
+    <p class="muted">หน้าแอดมิน</p>
+    <input class="field" id="code" type="password" placeholder="รหัสแอดมิน" autocomplete="current-password">
+    <button class="btn-primary wide" id="enter">เข้าสู่ระบบ</button>
+    <p id="msg"></p>
+  </div>
+
+  <div id="panel" hidden>
+    <div class="brand">Mold<span>krathong</span> · แอดมิน</div>
+    <div class="bar">
+      <select id="filter"><option value="reported">ถูกรายงาน / ซ่อนอยู่</option><option value="hidden">ซ่อนอยู่</option><option value="all">ทั้งหมด (ล่าสุด 300)</option></select>
+      <select id="spot"><option value="">ทุกจุด</option></select>
+      <button class="btn-ghost" id="reload" style="height:36px;font-size:14px">โหลดใหม่</button>
+      <button class="btn-ghost" id="clear" style="height:36px;font-size:14px">ล้างทั้งจุดนี้</button>
+      <span class="stats" id="stats"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+<script type="module">
+import { SUPABASE, SPOTS } from './js/config.js';
+import { imageUrl } from './js/data.js';
+const $ = s => document.querySelector(s);
+let code = sessionStorage.getItem('mk-admin') || '';
+const rpc = async (fn, body) => {
+  const r = await fetch(`${SUPABASE.url}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: SUPABASE.key, Authorization: 'Bearer ' + SUPABASE.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_code: code, ...body }) });
+  if (!r.ok) { let m = r.status; try { m = (await r.json()).message; } catch (_) {} throw new Error(m); }
+  return r.status === 204 ? null : r.json();
+};
+const spotName = id => (SPOTS.find(s => s.id === id) || {}).name || id;
+$('#spot').innerHTML += SPOTS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+const esc = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function load() {
+  const rows = await rpc('admin_list', { p_filter: $('#filter').value, p_spot: $('#spot').value || null });
+  $('#stats').textContent = rows.length + ' ใบ';
+  $('#grid').innerHTML = rows.map(k => `
+    <div class="card ${k.hidden ? 'hid' : ''}" data-id="${k.id}" data-dev="${esc(k.device_id)}">
+      <img src="${imageUrl(k.image_path)}" loading="lazy" alt="">
+      <b>${esc(k.nickname) || 'ไม่ประสงค์ออกนาม'} ${k.hidden ? '<span class="tag">ซ่อนอยู่</span>' : ''} ${k.report_count ? `<span class="tag">รายงาน ${k.report_count}</span>` : ''}</b>
+      <p>${k.wish ? '“' + esc(k.wish) + '”' : k.wish_private ? '(ในใจ) ' + esc(k.wish_private) : '-'}</p>
+      <p>${spotName(k.spot_id)} · ${new Date(k.created_at).toLocaleString('th-TH')}</p>
+      <div class="row">
+        <button data-act="${k.hidden ? 'show' : 'hide'}">${k.hidden ? 'แสดง' : 'ซ่อน'}</button>
+        <button data-act="ban">บล็อก</button>
+        <button class="red" data-act="del">ลบ</button>
+      </div>
+    </div>`).join('') || '<p class="muted">ไม่มีกระทงในหมวดนี้</p>';
+}
+async function enter() {
+  code = $('#code').value.trim() || code;
+  try { await rpc('admin_list', { p_filter: 'hidden' }); sessionStorage.setItem('mk-admin', code); $('#login').hidden = true; $('#panel').hidden = false; load(); }
+  catch (e) { $('#msg').textContent = 'รหัสไม่ถูกต้อง'; }
+}
+$('#enter').onclick = enter; $('#code').onkeydown = e => e.key === 'Enter' && enter();
+$('#filter').onchange = $('#spot').onchange = $('#reload').onclick = load;
+$('#clear').onclick = async () => {
+  const sp = $('#spot').value; if (!sp) return alert('เลือกจุดก่อน');
+  if (!confirm(`ลบกระทงทั้งหมดที่ ${spotName(sp)}? ย้อนกลับไม่ได้`)) return;
+  const n = await rpc('admin_clear_spot', { p_spot: sp }); alert(`ลบแล้ว ${n} ใบ`); load();
+};
+$('#grid').onclick = async (e) => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const card = b.closest('.card'), id = card.dataset.id, act = b.dataset.act;
+  if (act === 'del' && !confirm('ลบกระทงนี้ถาวร?')) return;
+  if (act === 'ban' && !confirm('บล็อกเครื่องนี้ และซ่อนกระทงทั้งหมดจากเครื่องนี้?')) return;
+  b.disabled = true;
+  if (act === 'hide' || act === 'show') await rpc('admin_set_hidden', { p_id: id, p_hidden: act === 'hide' });
+  if (act === 'del') await rpc('admin_delete', { p_id: id });
+  if (act === 'ban') await rpc('admin_ban', { p_device: card.dataset.dev });
+  load();
+};
+if (code) enter();
+</script>
+</body>
+</html>
