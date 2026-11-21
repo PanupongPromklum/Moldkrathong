@@ -5,7 +5,7 @@ import { CHARS } from './characters.js';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
-const BASE_TOP = 0.16;
+const BASE_TOP = 0.12;
 const MAX_UNDO = 25;
 const UP = new THREE.Vector3(0, 1, 0), ZAX = new THREE.Vector3(0, 0, 1);
 
@@ -44,9 +44,16 @@ export const DECOR = {
   'heart':      { th: 'หัวใจ',  tint: true, size: .22, draw: g => { heart(g, 6.5); g.fillStyle = '#fff'; g.fill(); } },
   'star':       { th: 'ดาว',    tint: true, size: .22, draw: g => { star(g, 118, 52); g.fillStyle = '#fff'; g.fill(); } },
   'flower':     { th: 'ดอกไม้', tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (let i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); g.beginPath(); g.ellipse(0, -62, 40, 58, 0, 0, 7); g.fill(); g.restore(); } g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); } },
+  'lotus':      { th: 'บัว',     tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (const [a, l] of [[-.9, .8], [.9, .8], [-.45, .95], [.45, .95], [0, 1]]) { g.save(); g.translate(0, 60); g.rotate(a); g.beginPath(); g.ellipse(0, -70 * l, 30, 70 * l, 0, 0, 7); g.fill(); g.restore(); } } },
+  'moon':       { th: 'จันทร์',  tint: true, size: .22, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 100, 0, 7); g.fill(); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(45, -30, 88, 0, 7); g.fill(); g.globalCompositeOperation = 'source-over'; } },
   'sparkle':    { th: 'วิบวับ', tint: true, size: .2,  draw: g => { star(g, 120, 22, 4); g.fillStyle = '#fff'; g.fill(); } },
 };
-export const INCENSE = { incense3: 'ธูป 3 ดอก', incense1: 'ธูป 1 ดอก', candle: 'เทียน' };
+export const INCENSE = {
+  incense3: 'ธูป 3 ดอก', incense1: 'ธูป 1 ดอก', candle: 'เทียน', marigold: 'ดาวเรือง', lotusbud: 'บัวตูม',
+  lotusopen: 'บัวบาน', garland: 'พวงมาลัย', leaf: 'ใบตองพับ', coin: 'เหรียญ',
+};
+const ORIENT = { incense3: .8, incense1: .8, candle: .85, marigold: .5, lotusbud: .75, lotusopen: .7, garland: 0, leaf: 0, coin: 0 };
+export const ITEM_COLOR = { candle: '#FFF4E0', marigold: '#FFB547', lotusbud: '#EB92B3', lotusopen: '#F6B8CF', garland: '#F7F4EA', leaf: '#86C29A', coin: '#E9C46A' };
 
 const texCache = {};
 const glowTex = () => texCache.glow || (texCache.glow = tex(g => { const r = g.createRadialGradient(0, 0, 0, 0, 0, 128); r.addColorStop(0, 'rgba(255,240,200,1)'); r.addColorStop(.25, 'rgba(255,190,110,.8)'); r.addColorStop(1, 'rgba(255,150,80,0)'); g.fillStyle = r; g.fillRect(-128, -128, 256, 256); }, 128));
@@ -54,7 +61,7 @@ const flameTex = () => texCache.flame || (texCache.flame = tex(g => { const r = 
 
 /* ---------------- templates ---------------- */
 export const TEMPLATES = [
-  { id: 'round', th: 'ก้อนกลม' }, { id: 'lotus', th: 'ดอกบัว' }, { id: 'heart', th: 'หัวใจ' },
+  { id: 'krathong', th: 'กระทง' }, { id: 'round', th: 'ก้อนกลม' }, { id: 'lotus', th: 'ดอกบัว' }, { id: 'heart', th: 'หัวใจ' },
   { id: 'gumdrop', th: 'มิน' }, { id: 'diamond', th: 'แอ๊ค' }, { id: 'splat', th: 'ใหม่' }, { id: 'flower', th: 'ไผ่' }, { id: 'cloud', th: 'ฟ้า' },
 ];
 
@@ -100,7 +107,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   const piece = new THREE.Group(); scene.add(piece);
 
   // plain minimal base
-  const baseGeo = new THREE.LatheGeometry([[0, 0], [1.16, 0], [1.27, .025], [1.32, .075], [1.3, .125], [1.22, BASE_TOP], [0, BASE_TOP]].map(p => new THREE.Vector2(p[0], p[1])), 72);
+  const baseGeo = new THREE.LatheGeometry([[0, 0], [.9, 0], [.99, .018], [1.03, .055], [1.01, .095], [.95, BASE_TOP], [0, BASE_TOP]].map(p => new THREE.Vector2(p[0], p[1])), 72);
   const baseMat = glow(new THREE.MeshStandardMaterial({ color: '#ECE9F7', roughness: .62 }), 'mk-base');
   const base = new THREE.Mesh(baseGeo, baseMat); piece.add(base);
 
@@ -128,7 +135,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   cursor.renderOrder = 10; cursor.visible = false; scene.add(cursor);
 
   /* -------- state -------- */
-  const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'round' };
+  const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'krathong', itemColor: { ...ITEM_COLOR } };
   const radius = () => .1 + st.size * .5;
   let decor = [];           // { kind, vi, obj, scale, color, base?: [x,y,z] }
   let flames = [];
@@ -149,6 +156,16 @@ export function createStudio(host, { onChange = () => {} } = {}) {
         const c = Math.hypot(x, y), r = mean + (profR(prof, Math.atan2(y, x)) - mean) * Math.pow(c, 2.4);
         const k = c > 1e-7 ? Math.pow(c, .93) / c : 0, zz = Math.sign(z) * Math.pow(Math.abs(z), .93);
         x = x * k * r; y = y * k * r; z = zz * (z > 0 ? depthF : depthB);
+      } else if (id === 'krathong') {
+        // classic krathong: flat bottom, scalloped petal skirt, inner shelf, lotus-bud cone
+        const ph = Math.atan2(z, x), t = Math.acos(Math.max(-1, Math.min(1, -y))) / Math.PI;
+        const pt = Math.pow(.5 + .5 * Math.cos(10 * ph), 4);
+        let rr, hh;
+        if (t < .12) { const u = t / .12; rr = u * .95; hh = u * .05; }
+        else if (t < .42) { const u = (t - .12) / .3; rr = .95 + .1 * Math.sin(u * Math.PI) + .26 * pt * u; hh = .05 + u * .42 + .16 * pt * u * u; }
+        else if (t < .52) { const u = (t - .42) / .1; rr = (.95 + .26 * pt) * (1 - u) + .5 * u; hh = .47 + .16 * pt * (1 - u) + .05 * u; }
+        else { const u = (t - .52) / .48; rr = .5 * Math.pow(1 - u, .85) * (1 + .12 * Math.pow(.5 + .5 * Math.cos(6 * ph + .5), 2)); hh = .52 + u * 1.0; }
+        x = Math.cos(ph) * rr; z = Math.sin(ph) * rr; y = hh;
       } else if (id === 'lotus') {
         const ph = Math.atan2(z, x), pet = Math.pow(.5 + .5 * Math.cos(8 * ph), 2.5), b = 1 + .2 * pet * (1 - Math.abs(y)) * (y > -.6 ? 1 : .3);
         x *= b; z *= b; y = y > 0 ? y * (1 + .45 * y * y) : y * .72;
@@ -158,11 +175,11 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     // fit on the base
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
     for (let i = 0; i < NV; i++) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); z0 = Math.min(z0, P[i * 3 + 2]); z1 = Math.max(z1, P[i * 3 + 2]); }
-    const s = Math.min(1.9 / (x1 - x0), 1.9 / (z1 - z0), 1.75 / (y1 - y0));
+    const s = Math.min(1.75 / (x1 - x0), 1.75 / (z1 - z0), 1.7 / (y1 - y0));
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (let i = 0; i < NV; i++) { P[i * 3] = (P[i * 3] - cx) * s; P[i * 3 + 1] = (P[i * 3 + 1] - y0) * s + BASE_TOP - .06; P[i * 3 + 2] = (P[i * 3 + 2] - cz) * s; }
     // colours
-    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : BRAND;
+    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#A9D8C3', '#9BB0DE', '#CBA5D1', '#EB92B3'] : BRAND;
     gradientFill(stops);
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
     undoStack.length = 0; redoStack.length = 0;
@@ -203,6 +220,15 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   const candleGeo = new THREE.CylinderGeometry(.075, .08, .3, 20).translate(0, .15, 0);
   const wickGeo = new THREE.CylinderGeometry(.006, .006, .05, 4).translate(0, .325, 0);
 
+  const itemGeo = {};
+  const once = (k, f) => () => itemGeo['_' + k] || (itemGeo['_' + k] = f());
+  itemGeo.marigold = once('mg', () => { const g = new THREE.IcosahedronGeometry(.085, 3); const p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const a = Math.atan2(v.z, v.x), b = Math.acos(Math.max(-1, Math.min(1, v.y / .085))); v.multiplyScalar(1 + .14 * Math.abs(Math.sin(a * 7) * Math.sin(b * 7))); v.y *= .8; p.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); return g; });
+  itemGeo.bud = once('bud', () => new THREE.LatheGeometry([[0, 0], [.05, .02], [.075, .08], [.07, .15], [.045, .22], [0, .29]].map(q => new THREE.Vector2(q[0], q[1])), 18));
+  itemGeo.petal = once('pt', () => { const g = new THREE.SphereGeometry(.05, 10, 8); g.scale(.75, .25, 1.6); g.translate(0, 0, .075); return g; });
+  itemGeo.garland = once('gl', () => { const g = new THREE.TorusGeometry(.12, .026, 8, 40); g.rotateX(Math.PI / 2); const p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const a = Math.atan2(v.z, v.x), k = 1 + .25 * Math.max(0, Math.cos(a * 18)); const r = Math.hypot(v.x, v.z), d = r - .12; const nr = .12 + d * k; v.x *= nr / r; v.z *= nr / r; v.y *= k; p.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); return g; });
+  itemGeo.leaf = once('lf', () => new THREE.ConeGeometry(.055, .24, 4, 1).translate(0, .1, 0));
+  itemGeo.coin = once('cn', () => new THREE.CylinderGeometry(.065, .065, .014, 24));
+
   function makeSticker(kind, color) {
     const D = DECOR[kind];
     const t = texCache[kind] || (texCache[kind] = tex(D.draw));
@@ -212,6 +238,26 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   }
   function makeIncense(kind, color) {
     const g = new THREE.Group();
+    const std = (c, extra = {}) => glow(new THREE.MeshStandardMaterial({ color: c, roughness: .6, ...extra }), 'mk-item');
+    if (kind === 'marigold') {
+      const m = new THREE.Mesh(itemGeo.marigold(), std(color)); m.position.y = .07; g.add(m); return g;
+    }
+    if (kind === 'lotusbud') {
+      const m = new THREE.Mesh(itemGeo.bud(), std(color)); g.add(m);
+      const leafM = std('#86C29A'); for (let i = 0; i < 3; i++) { const l = new THREE.Mesh(itemGeo.petal(), leafM); l.scale.set(.6, .5, .6); l.rotation.set(-.3, i * 2.09, 0, 'YXZ'); g.add(l); }
+      return g;
+    }
+    if (kind === 'lotusopen') {
+      const mat = std(color), inner = std('#FFE7A3');
+      for (let k = 0; k < 2; k++) for (let i = 0; i < 8; i++) { const l = new THREE.Mesh(itemGeo.petal(), mat); const sc = k ? .75 : 1; l.scale.setScalar(sc); l.rotation.set(k ? -1.05 : -.45, i * Math.PI / 4 + k * .39, 0, 'YXZ'); g.add(l); }
+      const c = new THREE.Mesh(new THREE.SphereGeometry(.035, 10, 8), inner); c.position.y = .04; g.add(c); return g;
+    }
+    if (kind === 'garland') {
+      const m = new THREE.Mesh(itemGeo.garland(), std(color, { roughness: .45 })); g.add(m);
+      const r = new THREE.Mesh(itemGeo.marigold(), std('#EB6F92')); r.scale.setScalar(.45); r.position.set(.13, .03, 0); g.add(r); return g;
+    }
+    if (kind === 'leaf') { const m = new THREE.Mesh(itemGeo.leaf(), std(color, { flatShading: true })); g.add(m); return g; }
+    if (kind === 'coin') { const m = new THREE.Mesh(itemGeo.coin(), new THREE.MeshStandardMaterial({ color, metalness: .75, roughness: .32 })); m.position.y = .007; g.add(m); return g; }
     if (kind === 'candle') {
       const body = new THREE.Mesh(candleGeo, glow(new THREE.MeshStandardMaterial({ color, roughness: .55 }), 'mk-candle'));
       const wick = new THREE.Mesh(wickGeo, new THREE.MeshBasicMaterial({ color: '#3a2a20' }));
@@ -251,9 +297,9 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     if (d.base) { _p.fromArray(d.base); _n.set(0, 1, 0); }
     else { const N = geo.attributes.normal.array; _p.fromArray(P, d.vi * 3); _n.fromArray(N, d.vi * 3).normalize(); }
     if (d.inc) {
-      _dir.copy(_n).lerp(UP, .8).normalize();
+      _dir.copy(_n).lerp(UP, ORIENT[d.kind] ?? .8).normalize();
       d.obj.quaternion.setFromUnitVectors(UP, _dir);
-      d.obj.position.copy(_p).addScaledVector(_dir, -.05 * d.scale);
+      d.obj.position.copy(_p).addScaledVector(_dir, (d.kind === 'coin' || d.kind === 'garland' ? 0 : -.05) * d.scale);
     } else {
       // keep stickers upright: x along the horizon, y as close to world up as the surface allows
       _x.crossVectors(UP, _n); if (_x.lengthSq() < 1e-4) _x.set(1, 0, 0); _x.normalize(); _y.crossVectors(_n, _x);
@@ -373,10 +419,11 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   }
   function place(hit) {
     const kind = st.sub, isInc = kind in INCENSE;
-    const scale = isInc ? .6 + st.size * .8 : DECOR[kind].size * (.5 + st.size * 1.4) * 2;
+    const scale = isInc ? (kind.startsWith('incense') || kind === 'candle' ? .6 + st.size * .8 : .7 + st.size * 1.3) : DECOR[kind].size * (.5 + st.size * 1.4) * 2;
+    const color = isInc && st.itemColor[kind] ? st.itemColor[kind] : st.color;
     const put = (x, y, z) => {
-      if (hit.obj === 'base') addDecor(kind, -1, scale, st.color, [x, BASE_TOP, z]);
-      else addDecor(kind, nearestVertex(x, y, z), scale, st.color, null);
+      if (hit.obj === 'base') addDecor(kind, -1, scale, color, [x, BASE_TOP, z]);
+      else addDecor(kind, nearestVertex(x, y, z), scale, color, null);
     };
     const p = hit.point; put(p.x, p.y, p.z);
     const pair = isInc || DECOR[kind]?.pair;
@@ -499,11 +546,12 @@ export function createStudio(host, { onChange = () => {} } = {}) {
 
   /* -------- public api -------- */
   paintCol.set(st.color);
-  applyTemplate('round');
+  applyTemplate('krathong');
   resize();
   return {
     setTool(tab, sub) { st.tab = tab; if (sub) st.sub = sub; },
-    setColor(hex) { st.color = hex; paintCol.set(hex); },
+    setColor(hex) { st.color = hex; paintCol.set(hex); if (st.tab === 'incense' && st.sub in st.itemColor) st.itemColor[st.sub] = hex; },
+    itemColor(k) { return st.itemColor[k]; },
     setSize(v) { st.size = v; }, setStrength(v) { st.strength = v; }, setSymmetry(b) { st.sym = b; },
     get state() { return { ...st, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0, decorCount: decor.length }; },
     undo, redo, reset: applyTemplate,

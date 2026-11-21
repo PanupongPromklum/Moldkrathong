@@ -2,6 +2,7 @@
 import { SPOTS, STUDIO } from './config.js';
 import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js';
 import { createMap } from './map.js';
+import { makeCard, BACKDROPS } from './card.js';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); };
@@ -24,7 +25,7 @@ function openSheet(title, sub, avaKey, bodyHTML) {
 function openSpot(spot) {
   currentSpot = spot;
   openSheet(spot.name, spot.sub, 'gumdrop', `
-    <div class="sheet-say">มิน: มาลอยกระทงที่นี่กันไหม ปั้นเองก็ได้ หรือรับกระทงฟรีจากพวกเราก็ได้นะ</div>
+    <div class="sheet-say">${spot.studio ? 'บ่อเล็กๆ หน้าบ้านพวกเรา ใครก็มาลอยได้นะ!' : 'มาลอยที่นี่กันไหม ปั้นเองหรือรับกระทงฟรีก็ได้'}</div>
     <div class="sheet-actions">
       <button class="btn-primary" id="act-sculpt">ปั้นกระทงเอง</button>
       <div class="row">
@@ -32,6 +33,7 @@ function openSpot(spot) {
         <button class="btn-ghost" disabled>ดูแม่น้ำ <span class="soon">เร็วๆ นี้</span></button>
       </div>
     </div>`);
+  if (spot.studio) $('.sheet-actions').insertAdjacentHTML('beforeend', `<a class="link-soft" href="${STUDIO.ig}" target="_blank" rel="noopener">ทีมที่ทำเกมนี้ · ${STUDIO.igName}</a>`);
   $('#act-sculpt').addEventListener('click', () => openStudio(spot));
 }
 function openStudioInfo(s) {
@@ -54,6 +56,17 @@ const SHAPE_TOOLS = [
   ['smooth', 'เกลี่ย', 'M3 14c3-4 5-4 8 0s5 4 8 0l2 1.5c-4 5-7 5-10 1s-5-4-7 0z'],
   ['crease', 'ร่อง', 'M4 5l8 14 8-14h-3l-5 9-5-9z'],
 ];
+const ITEM_ICON = {
+  incense3: 'M11 9h2v13h-2zM7 11h2v11H7zm8 0h2v11h-2zM12 3.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8zM8 6.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm8 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z',
+  incense1: 'M11 8h2v14h-2zM12 3a2.4 2.4 0 1 1 0 4.8A2.4 2.4 0 0 1 12 3z',
+  candle: 'M9 10h6v11H9zM12 2c1.8 2.2 2.4 4 1.5 5.5-.4.6-.9 1-1.5 1s-1.1-.4-1.5-1C9.6 6 10.2 4.2 12 2z',
+  marigold: 'M12 4a3 3 0 0 1 2.9 2.2A3 3 0 0 1 19 9.5a3 3 0 0 1-.6 4.3A3 3 0 0 1 15 18.5a3 3 0 0 1-6 0 3 3 0 0 1-3.4-4.7A3 3 0 0 1 9.1 6.2 3 3 0 0 1 12 4z',
+  lotusbud: 'M12 3c3.5 3.2 4.8 7 3.8 11.5-1.1 1-2.4 1.5-3.8 1.5s-2.7-.5-3.8-1.5C7.2 10 8.5 6.2 12 3zM5 15c2 0 4.5 1.2 7 3.2 2.5-2 5-3.2 7-3.2-1.3 3.4-4 5.5-7 5.5S6.3 18.4 5 15z',
+  lotusopen: 'M12 4c2.2 2.4 3 5 2.6 8H9.4C9 9 9.8 6.4 12 4zM4 9c3 .2 5 1.7 6 4.5L8.2 15C5.8 14 4.4 12 4 9zm16 0c-.4 3-1.8 5-4.2 6L14 13.5c1-2.8 3-4.3 6-4.5zM3 16c3-1 6.2-1 9 .8 2.8-1.8 6-1.8 9-.8-1.6 2.6-5 4.5-9 4.5S4.6 18.6 3 16z',
+  garland: 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
+  leaf: 'M12 2l6 18-6-3-6 3z',
+  coin: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm-1 4v2H9v2h4v1H9v4h2v2h2v-2h2v-2h-4v-1h4V9h-2V7z',
+};
 const PAINT_TOOLS = [
   ['brush', 'พู่กัน', 'M20 3l1 1-9 11-2-2zM8 14l2 2c0 3-2 5-6 5 1-1 1-3 1-4 0-2 1-3 3-3z'],
   ['fill', 'เทสี', 'M12 2.5s7 7.3 7 12a7 7 0 1 1-14 0c0-4.7 7-12 7-12z'],
@@ -62,10 +75,10 @@ const PAINT_TOOLS = [
 let paintColor = COLORS[0];
 
 function setHelper(t) {
-  const h = HELPERS[t === 'template' ? 'done' : t] || HELPERS.shape;
+  const h = HELPERS[t] || HELPERS.shape;
   drawChar($('#helper-ava'), h.key, { size: 46, mood: 'smile' });
-  $('#helper-name').textContent = `${CHARS[h.key].name} · ${h.role}`;
-  $('#helper-tip').textContent = t === 'template' ? 'เริ่มจากทรงไหนดี? เลือกได้เลย แล้วค่อยปั้นต่อตามใจ' : h.tip;
+  $('#helper-name').textContent = CHARS[h.key].name;
+  $('#helper-tip').textContent = h.tip;
   const el = $('#helper'); el.classList.remove('min', 'pop'); void el.offsetWidth; el.classList.add('pop');
   clearTimeout(setHelper.t); setHelper.t = setTimeout(() => el.classList.add('min'), 6000);
 }
@@ -87,7 +100,7 @@ function decorIcon(kind) {
 }
 function tplIcon(id) {
   if (CHARS[id]) return charCanvas(id, { size: 34 });
-  const d = { round: 'M12 4c4.4 0 8 3.2 8 8s-3.6 8-8 8-8-3.6-8-8 3.6-8 8-8z', lotus: 'M12 3c3 3 4.5 6.5 4 10.5-1.3 1-2.6 1.5-4 1.5s-2.7-.5-4-1.5C7.5 9.5 9 6 12 3zM3 9c3.5.5 6 3 6.8 7.5C6 17 3.8 15.2 3 9zm18 0c-.8 6.2-3 8-6.8 7.5C15 12 17.5 9.5 21 9zM4 18h16c-1.5 2-4.5 3-8 3s-6.5-1-8-3z', heart: 'M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z' }[id];
+  const d = { krathong: 'M12 3c2.6 2.4 3.6 5 3.2 7.6H8.8C8.4 8 9.4 5.4 12 3zM2.5 11.5l3 1.3 2.2-1.6L10 12.6l2-1.6 2 1.6 2.3-1.4 2.2 1.6 3-1.3-1.2 4.6c-2 2-4.8 3-8.3 3s-6.3-1-8.3-3z', round: 'M12 4c4.4 0 8 3.2 8 8s-3.6 8-8 8-8-3.6-8-8 3.6-8 8-8z', lotus: 'M12 3c3 3 4.5 6.5 4 10.5-1.3 1-2.6 1.5-4 1.5s-2.7-.5-4-1.5C7.5 9.5 9 6 12 3zM3 9c3.5.5 6 3 6.8 7.5C6 17 3.8 15.2 3 9zm18 0c-.8 6.2-3 8-6.8 7.5C15 12 17.5 9.5 21 9zM4 18h16c-1.5 2-4.5 3-8 3s-6.5-1-8-3z', heart: 'M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z' }[id];
   return svgIcon(d);
 }
 
@@ -127,25 +140,26 @@ function renderTools() {
     slF.hidden = true;
   } else if (tab === 'incense') {
     for (const [k, th] of Object.entries(mod.INCENSE)) {
-      const d = k === 'candle' ? 'M10 9h4v12h-4zM12 2c1.6 2 2.2 3.6 1.4 5-.4.6-.8.9-1.4.9s-1-.3-1.4-.9C9.8 5.6 10.4 4 12 2z' : k === 'incense1' ? 'M11 8h2v14h-2zM12 3a2.4 2.4 0 1 1 0 4.8A2.4 2.4 0 0 1 12 3z' : 'M11 9h2v13h-2zM7 11h2v11H7zm8 0h2v11h-2zM12 3.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8zM8 6.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm8 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z';
-      const b = chip(th, st.sub === k, svgIcon(d));
+      const b = chip(th, st.sub === k, svgIcon(ITEM_ICON[k]));
+      const ic = studio.itemColor(k); if (ic) b.firstChild.style.color = ic;
       b.addEventListener('click', () => { studio.setTool(tab, k); renderTools(); });
       box.append(b);
     }
     slF.hidden = true;
   }
   if (tab === 'paint' && st.sub !== 'brush') slF.hidden = true;
-  if (tab === 'paint' || (tab === 'decor') || (tab === 'incense' && st.sub === 'candle')) {
+  if (tab === 'paint' || tab === 'decor' || (tab === 'incense' && studio.itemColor(st.sub))) {
     if (tab === 'paint' && st.sub === 'gradient') return;
+    const cur = tab === 'incense' ? studio.itemColor(st.sub) : paintColor;
     const sw = document.createElement('div'); sw.className = 'swatches';
     for (const c of COLORS) {
-      const b = document.createElement('button'); b.className = 'sw' + (c === paintColor ? ' active' : ''); b.style.background = c; b.setAttribute('aria-label', 'สี ' + c);
-      b.addEventListener('click', () => { paintColor = c; studio.setColor(c); renderTools(); });
+      const b = document.createElement('button'); b.className = 'sw' + (c.toLowerCase() === (cur || '').toLowerCase() ? ' active' : ''); b.style.background = c; b.setAttribute('aria-label', 'สี ' + c);
+      b.addEventListener('click', () => { if (tab !== 'incense') paintColor = c; studio.setColor(c); renderTools(); });
       sw.append(b);
     }
     const cu = document.createElement('label'); cu.className = 'sw custom'; cu.setAttribute('aria-label', 'เลือกสีเอง');
-    const inp = document.createElement('input'); inp.type = 'color'; inp.value = paintColor;
-    inp.addEventListener('change', () => { paintColor = inp.value; studio.setColor(inp.value); renderTools(); });
+    const inp = document.createElement('input'); inp.type = 'color'; inp.value = cur || paintColor;
+    inp.addEventListener('change', () => { if (tab !== 'incense') paintColor = inp.value; studio.setColor(inp.value); renderTools(); });
     cu.append(inp); sw.append(cu);
     box.after(sw);
   }
@@ -156,6 +170,7 @@ function setTab(t) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   if (t !== 'template') studio.setTool(t, studio.state.tab === t ? studio.state.sub : subOf[t]);
   else studio.setTool('view');
+  if (t !== 'incense') studio.setColor(paintColor);
   setHelper(t); renderTools();
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => studio && setTab(b.dataset.tab)));
@@ -192,23 +207,34 @@ function closeStudio() { studio?.pause(); show('screen-map'); mapApi?.resize(); 
 $('#btn-back').addEventListener('click', () => history.back());
 window.addEventListener('popstate', () => { if ($('#screen-studio').classList.contains('active')) closeStudio(); $('#modal-done').hidden = true; });
 
-/* ---------------- done (step 1 preview) ---------------- */
-let lastShot = null;
-$('#btn-done').addEventListener('click', () => {
+/* ---------------- done: save with or without a backdrop ---------------- */
+let lastShot = null, bg = 'none', lastCard = null;
+async function refreshCard() {
+  lastCard = await makeCard(lastShot, bg, SPOTS.find(s => s.id === bg));
+  $('#done-img').src = lastCard.toDataURL('image/png');
+  $('#done-prev').classList.toggle('clear', bg === 'none');
+  document.querySelectorAll('#bg-chips button').forEach(b => b.classList.toggle('active', b.dataset.bg === bg));
+}
+$('#bg-chips').innerHTML = BACKDROPS.map(b => `<button data-bg="${b.id}">${b.th}</button>`).join('');
+$('#bg-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { bg = b.dataset.bg; refreshCard(); } });
+$('#btn-done').addEventListener('click', async () => {
   if (!studio) return;
-  lastShot = studio.snapshot(720);
-  $('#done-img').src = lastShot.toDataURL('image/png');
-  $('#done-spot').textContent = currentSpot.name;
+  studio.frontView();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  lastShot = studio.snapshot(900);
+  bg = currentSpot.id;
   $('#modal-done').hidden = false;
+  await refreshCard();
   setHelper('done');
 });
 $('#done-back').addEventListener('click', () => { $('#modal-done').hidden = true; });
 $('#done-save').addEventListener('click', () => {
-  if (!lastShot) return;
-  lastShot.toBlob(async (blob) => {
-    const file = new File([blob], 'moldkrathong.png', { type: 'image/png' });
+  if (!lastCard) return;
+  lastCard.toBlob(async (blob) => {
+    const name = `moldkrathong-${bg}.png`;
+    const file = new File([blob], name, { type: 'image/png' });
     if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Moldkrathong' }); return; } catch (_) { /* fall back */ } }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'moldkrathong.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   }, 'image/png');
 });
 

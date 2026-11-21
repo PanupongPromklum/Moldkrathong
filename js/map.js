@@ -30,17 +30,11 @@ export async function createMap(el, { onSpot, onStudio }) {
   for (const s of SPOTS) {
     const b = document.createElement('button');
     b.className = 'pin'; b.type = 'button'; b.setAttribute('aria-label', 'ลอยกระทงที่ ' + s.name);
-    b.innerHTML = `<span class="pin-glow"></span><span class="pin-icon">${KRATHONG_SVG}</span><span class="pin-label">${s.name}</span>`;
+    b.innerHTML = `<span class="pin-glow"></span><span class="pin-icon">${s.studio ? '' : KRATHONG_SVG}</span><span class="pin-label">${s.name}</span>`;
+    if (s.studio) { b.classList.add('pin-studio'); b.querySelector('.pin-icon').append(charCanvas('gumdrop', { size: 40, mood: 'smile' })); }
     b.addEventListener('click', (e) => { e.stopPropagation(); map.easeTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 13.4), duration: 600 }); onSpot(s); });
     markers.push(new maplibregl.Marker({ element: b, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map));
   }
-  // Moldable Studio — small, friendly pin
-  const st = document.createElement('button');
-  st.className = 'pin pin-studio'; st.type = 'button'; st.setAttribute('aria-label', STUDIO.name);
-  const av = charCanvas('gumdrop', { size: 34, mood: 'smile' }); av.className = 'pin-ava';
-  st.append(av); st.insertAdjacentHTML('beforeend', `<span class="pin-label">${STUDIO.name}</span>`);
-  st.addEventListener('click', (e) => { e.stopPropagation(); onStudio(STUDIO); });
-  new maplibregl.Marker({ element: st, anchor: 'bottom' }).setLngLat([STUDIO.lng, STUDIO.lat]).addTo(map);
 
   return {
     map,

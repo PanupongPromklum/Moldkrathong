@@ -6,11 +6,12 @@ export const CHAR_KEYS = ['gumdrop', 'diamond', 'splat', 'flower', 'cloud'];
 
 // Which blob helps with which tool (matches each person's skill).
 export const HELPERS = {
-  shape:   { key: 'diamond', role: 'UI / Motion', tip: 'ลากนิ้วบนก้อนเพื่อปั้น ลากที่ว่างเพื่อหมุน ใช้สองนิ้วซูม เปิด "ซ้ายขวาเหมือนกัน" ไว้ ปั้นง่ายขึ้นเยอะเลย' },
-  paint:   { key: 'splat',   role: 'Branding',    tip: 'เลือกสีแล้วระบายได้เลย หรือกด "ไล่สี Moldable" ทีเดียวสวยทั้งก้อน' },
-  decor:   { key: 'flower',  role: 'UX / CX',     tip: 'ใส่ตากับปากให้กระทงมีชีวิต แตะบนตัวปั้นตรงที่อยากวาง' },
-  incense: { key: 'cloud',   role: 'Frontend Dev', tip: 'ปักธูปกับเทียนตรงไหนก็ได้ แตะเลย!' },
-  done:    { key: 'gumdrop', role: 'CEO',         tip: 'สวยมาก! พร้อมไปอธิษฐานแล้วลอยกันหรือยัง' },
+  template: { key: 'gumdrop', tip: 'เริ่มจากทรงไหนดี? เลือกเลย แล้วปั้นต่อตามใจ' },
+  shape:   { key: 'diamond', tip: 'ลากบนก้อนเพื่อปั้น ลากที่ว่างเพื่อหมุน สองนิ้วซูม' },
+  paint:   { key: 'splat',   tip: 'เลือกสีแล้วระบายเลย หรือกด "ไล่สี Moldable" ทีเดียวสวย' },
+  decor:   { key: 'flower',  tip: 'ใส่ตากับปากให้กระทงมีชีวิต แตะตรงที่อยากวาง' },
+  incense: { key: 'cloud',   tip: 'ธูป เทียน ดอกไม้ แตะวางตรงไหนก็ได้!' },
+  done:    { key: 'gumdrop', tip: 'สวยมาก! เก็บรูปไว้ก่อน แล้วไปลอยกัน' },
 };
 
 const INK = '#202429', WHITE = '#f4f4f6';
