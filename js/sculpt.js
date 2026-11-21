@@ -1,0 +1,515 @@
+// Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
+import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CHARS } from './characters.js';
+
+export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
+const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
+const BASE_TOP = 0.16;
+const MAX_UNDO = 25;
+const UP = new THREE.Vector3(0, 1, 0), ZAX = new THREE.Vector3(0, 0, 1);
+
+const glow = (mat, key) => {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      float mkFr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 2.2);
+      totalEmissiveRadiance += diffuseColor.rgb * 0.07 + vec3(0.13) * mkFr;`);
+  };
+  mat.customProgramCacheKey = () => key;
+  return mat;
+};
+
+/* ---------------- textures for stickers and flames ---------------- */
+const INK = '#202429';
+function tex(draw, size = 256) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'); g.translate(size / 2, size / 2); g.scale(size / 256, size / 256);
+  g.lineCap = 'round'; g.lineJoin = 'round'; draw(g);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 2; return t;
+}
+const star = (g, r1, r2, n = 5) => { g.beginPath(); for (let i = 0; i < n * 2; i++) { const r = i % 2 ? r2 : r1, a = -Math.PI / 2 + i * Math.PI / n; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); };
+const heart = (g, s) => { g.beginPath(); for (let i = 0; i <= 60; i++) { const t = i / 60 * Math.PI * 2; g.lineTo(16 * Math.pow(Math.sin(t), 3) * s, -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * s); } g.closePath(); };
+
+export const DECOR = {
+  'eye-mold':   { th: 'ตาโต',   pair: true, size: .22, draw: g => { g.fillStyle = '#f4f4f6'; g.beginPath(); g.ellipse(0, 0, 70, 96, 0, 0, 7); g.fill(); g.fillStyle = INK; g.beginPath(); g.ellipse(4, 10, 50, 70, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(26, -26, 12, 22, -.6, 0, 7); g.fill(); } },
+  'eye-dot':    { th: 'ตาเม็ด', pair: true, size: .16, draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, 0, 62, 86, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(20, -26, 14, 22, -.5, 0, 7); g.fill(); } },
+  'eye-happy':  { th: 'ตายิ้ม', pair: true, size: .2,  draw: g => { g.strokeStyle = INK; g.lineWidth = 26; g.beginPath(); g.moveTo(-80, 30); g.quadraticCurveTo(0, -70, 80, 30); g.stroke(); } },
+  'eye-sleep':  { th: 'ตาหลับ', pair: true, size: .2,  draw: g => { g.strokeStyle = INK; g.lineWidth = 24; g.beginPath(); g.moveTo(-80, -10); g.quadraticCurveTo(0, 60, 80, -10); g.stroke(); } },
+  'eye-star':   { th: 'ตาดาว',  pair: true, size: .22, draw: g => { star(g, 110, 48); g.fillStyle = INK; g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(18, -22, 14, 0, 7); g.fill(); } },
+  'mouth-smile':{ th: 'ยิ้ม',    size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 22; g.beginPath(); g.moveTo(-80, -20); g.quadraticCurveTo(0, 70, 80, -20); g.stroke(); } },
+  'mouth-open': { th: 'อ้าปาก', size: .22, draw: g => { g.beginPath(); g.moveTo(-80, -30); g.quadraticCurveTo(0, 130, 80, -30); g.closePath(); g.fillStyle = INK; g.fill(); g.save(); g.clip(); g.fillStyle = '#ee8fb0'; g.beginPath(); g.ellipse(0, 60, 46, 30, 0, 0, 7); g.fill(); g.restore(); } },
+  'mouth-cat':  { th: 'ปากแมว', size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 20; g.beginPath(); g.moveTo(-90, -10); g.quadraticCurveTo(-45, 60, 0, -5); g.quadraticCurveTo(45, 60, 90, -10); g.stroke(); } },
+  'mouth-o':    { th: 'ปากโอ',  size: .14, draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, 0, 60, 74, 0, 0, 7); g.fill(); } },
+  'blush':      { th: 'แก้มแดง', pair: true, size: .24, draw: g => { const r = g.createRadialGradient(0, 0, 0, 0, 0, 110); r.addColorStop(0, 'rgba(246,140,180,.9)'); r.addColorStop(1, 'rgba(246,140,180,0)'); g.fillStyle = r; g.beginPath(); g.ellipse(0, 0, 120, 80, 0, 0, 7); g.fill(); } },
+  'heart':      { th: 'หัวใจ',  tint: true, size: .22, draw: g => { heart(g, 6.5); g.fillStyle = '#fff'; g.fill(); } },
+  'star':       { th: 'ดาว',    tint: true, size: .22, draw: g => { star(g, 118, 52); g.fillStyle = '#fff'; g.fill(); } },
+  'flower':     { th: 'ดอกไม้', tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (let i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); g.beginPath(); g.ellipse(0, -62, 40, 58, 0, 0, 7); g.fill(); g.restore(); } g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); } },
+  'sparkle':    { th: 'วิบวับ', tint: true, size: .2,  draw: g => { star(g, 120, 22, 4); g.fillStyle = '#fff'; g.fill(); } },
+};
+export const INCENSE = { incense3: 'ธูป 3 ดอก', incense1: 'ธูป 1 ดอก', candle: 'เทียน' };
+
+const texCache = {};
+const glowTex = () => texCache.glow || (texCache.glow = tex(g => { const r = g.createRadialGradient(0, 0, 0, 0, 0, 128); r.addColorStop(0, 'rgba(255,240,200,1)'); r.addColorStop(.25, 'rgba(255,190,110,.8)'); r.addColorStop(1, 'rgba(255,150,80,0)'); g.fillStyle = r; g.fillRect(-128, -128, 256, 256); }, 128));
+const flameTex = () => texCache.flame || (texCache.flame = tex(g => { const r = g.createRadialGradient(0, 30, 4, 0, 10, 120); r.addColorStop(0, 'rgba(255,255,235,1)'); r.addColorStop(.3, 'rgba(255,205,120,.95)'); r.addColorStop(.7, 'rgba(255,140,70,.35)'); r.addColorStop(1, 'rgba(255,120,60,0)'); g.fillStyle = r; g.beginPath(); g.moveTo(0, -120); g.bezierCurveTo(70, -20, 80, 90, 0, 120); g.bezierCurveTo(-80, 90, -70, -20, 0, -120); g.fill(); }, 128));
+
+/* ---------------- templates ---------------- */
+export const TEMPLATES = [
+  { id: 'round', th: 'ก้อนกลม' }, { id: 'lotus', th: 'ดอกบัว' }, { id: 'heart', th: 'หัวใจ' },
+  { id: 'gumdrop', th: 'มิน' }, { id: 'diamond', th: 'แอ๊ค' }, { id: 'splat', th: 'ใหม่' }, { id: 'flower', th: 'ไผ่' }, { id: 'cloud', th: 'ฟ้า' },
+];
+
+let heartProfile = null;
+function getHeartProfile() {
+  if (heartProfile) return heartProfile;
+  const raw = [];
+  for (let i = 0; i < 720; i++) {
+    const t = i / 720 * Math.PI * 2;
+    const x = 16 * Math.pow(Math.sin(t), 3), y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) + 2;
+    raw.push([Math.atan2(y, x), Math.hypot(x, y) / 17]);
+  }
+  raw.sort((a, b) => a[0] - b[0]);
+  const N = 180, out = new Array(N);
+  for (let k = 0; k < N; k++) {
+    let a = k / N * Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2;
+    let j = raw.findIndex(p => p[0] >= a); if (j <= 0) j = 1;
+    const p0 = raw[j - 1], p1 = raw[Math.min(j, raw.length - 1)];
+    const f = (a - p0[0]) / Math.max(1e-6, p1[0] - p0[0]);
+    out[k] = p0[1] + (p1[1] - p0[1]) * Math.min(1, Math.max(0, f));
+  }
+  return (heartProfile = out);
+}
+const profR = (p, t) => { const N = p.length, u = ((t / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(u), f = u - i; return p[i % N] * (1 - f) + p[(i + 1) % N] * f; };
+
+/* ================================================================== */
+export function createStudio(host, { onChange = () => {} } = {}) {
+  const canvas = document.createElement('canvas'); canvas.className = 'studio-canvas'; host.appendChild(canvas);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(dpr);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, .1, 60); scene.add(camera);
+  scene.add(new THREE.HemisphereLight('#d9defa', '#3b3566', 1.25));
+  const key = new THREE.DirectionalLight('#eef0ff', 1.7); key.position.set(-2.5, 3, 3); camera.add(key);
+  const rim = new THREE.DirectionalLight('#f3a9cb', 1.1); rim.position.set(3, 1.5, -3); camera.add(rim);
+  const target = new THREE.Vector3(0, .85, 0);
+  const view = { yaw: -.45, pitch: .3, dist: 6, fit: 6 };
+
+  const piece = new THREE.Group(); scene.add(piece);
+
+  // plain minimal base
+  const baseGeo = new THREE.LatheGeometry([[0, 0], [1.16, 0], [1.27, .025], [1.32, .075], [1.3, .125], [1.22, BASE_TOP], [0, BASE_TOP]].map(p => new THREE.Vector2(p[0], p[1])), 72);
+  const baseMat = glow(new THREE.MeshStandardMaterial({ color: '#ECE9F7', roughness: .62 }), 'mk-base');
+  const base = new THREE.Mesh(baseGeo, baseMat); piece.add(base);
+
+  // clay
+  const ico = new THREE.IcosahedronGeometry(1, DETAIL); ico.deleteAttribute('normal'); ico.deleteAttribute('uv');
+  const geo = mergeVertices(ico); ico.dispose();
+  const NV = geo.attributes.position.count;
+  const dirs = geo.attributes.position.array.slice();
+  const P = geo.attributes.position.array;
+  const C = new Float32Array(NV * 3); geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  geo.computeVertexNormals();
+  const clayMat = glow(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5 }), 'mk-clay');
+  const clay = new THREE.Mesh(geo, clayMat); piece.add(clay);
+  // neighbours (for smoothing)
+  const adjStart = new Uint32Array(NV + 1); let adjList;
+  {
+    const sets = Array.from({ length: NV }, () => new Set()), ix = geo.index.array;
+    for (let i = 0; i < ix.length; i += 3) { const a = ix[i], b = ix[i + 1], c = ix[i + 2]; sets[a].add(b).add(c); sets[b].add(a).add(c); sets[c].add(a).add(b); }
+    let n = 0; for (let i = 0; i < NV; i++) { adjStart[i] = n; n += sets[i].size; } adjStart[NV] = n;
+    adjList = new Uint32Array(n); let k = 0; for (const s of sets) for (const v of s) adjList[k++] = v;
+  }
+
+  // brush ring
+  const cursor = new THREE.Mesh(new THREE.RingGeometry(.86, 1, 40), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .55, depthTest: false }));
+  cursor.renderOrder = 10; cursor.visible = false; scene.add(cursor);
+
+  /* -------- state -------- */
+  const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'round' };
+  const radius = () => .1 + st.size * .5;
+  let decor = [];           // { kind, vi, obj, scale, color, base?: [x,y,z] }
+  let flames = [];
+  const undoStack = [], redoStack = [];
+  let dirty = true, geoDirty = false, colDirty = false;
+
+  /* -------- template -------- */
+  function applyTemplate(id) {
+    st.template = id;
+    const ch = CHARS[id];
+    let prof = null, depthF = .85, depthB = .68, mean = 0;
+    if (ch) { prof = ch.p; depthF = .85 * ch.req; depthB = depthF * .8; }
+    if (id === 'heart') { prof = getHeartProfile(); depthF = .5; depthB = .45; }
+    if (prof) { for (const v of prof) mean += v; mean /= prof.length; }
+    for (let i = 0; i < NV; i++) {
+      let x = dirs[i * 3], y = dirs[i * 3 + 1], z = dirs[i * 3 + 2];
+      if (prof) {
+        const c = Math.hypot(x, y), r = mean + (profR(prof, Math.atan2(y, x)) - mean) * Math.pow(c, 2.4);
+        const k = c > 1e-7 ? Math.pow(c, .93) / c : 0, zz = Math.sign(z) * Math.pow(Math.abs(z), .93);
+        x = x * k * r; y = y * k * r; z = zz * (z > 0 ? depthF : depthB);
+      } else if (id === 'lotus') {
+        const ph = Math.atan2(z, x), pet = Math.pow(.5 + .5 * Math.cos(8 * ph), 2.5), b = 1 + .2 * pet * (1 - Math.abs(y)) * (y > -.6 ? 1 : .3);
+        x *= b; z *= b; y = y > 0 ? y * (1 + .45 * y * y) : y * .72;
+      } else { x *= .98; y *= .86; z *= .98; }
+      P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z;
+    }
+    // fit on the base
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (let i = 0; i < NV; i++) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); z0 = Math.min(z0, P[i * 3 + 2]); z1 = Math.max(z1, P[i * 3 + 2]); }
+    const s = Math.min(1.9 / (x1 - x0), 1.9 / (z1 - z0), 1.75 / (y1 - y0));
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    for (let i = 0; i < NV; i++) { P[i * 3] = (P[i * 3] - cx) * s; P[i * 3 + 1] = (P[i * 3 + 1] - y0) * s + BASE_TOP - .06; P[i * 3 + 2] = (P[i * 3 + 2] - cz) * s; }
+    // colours
+    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : BRAND;
+    gradientFill(stops);
+    clearDecorObjs(); baseMat.color.set('#ECE9F7');
+    undoStack.length = 0; redoStack.length = 0;
+    geoDirty = true; onChange();
+  }
+
+  function gradientFill(stops) {
+    const cs = stops.map(h => new THREE.Color(h)), c = new THREE.Color();
+    let y0 = 1e9, y1 = -1e9; for (let i = 0; i < NV; i++) { y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); }
+    for (let i = 0; i < NV; i++) {
+      const t = (P[i * 3 + 1] - y0) / Math.max(1e-6, y1 - y0) * (cs.length - 1), k = Math.min(cs.length - 2, Math.floor(t));
+      c.copy(cs[k]).lerp(cs[k + 1], t - k);
+      C[i * 3] = c.r; C[i * 3 + 1] = c.g; C[i * 3 + 2] = c.b;
+    }
+    colDirty = true;
+  }
+
+  /* -------- undo -------- */
+  const decorState = () => decor.map(d => ({ kind: d.kind, vi: d.vi, scale: d.scale, color: d.color, base: d.base }));
+  const snap = () => ({ P: P.slice(), C: C.slice(), decor: decorState(), baseColor: '#' + baseMat.color.getHexString() });
+  function restore(s) {
+    P.set(s.P); C.set(s.C); baseMat.color.set(s.baseColor);
+    clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base);
+    geoDirty = true; colDirty = true;
+  }
+  function pushUndo() { undoStack.push(snap()); if (undoStack.length > MAX_UNDO) undoStack.shift(); redoStack.length = 0; onChange(); }
+  function undo() { if (!undoStack.length) return; redoStack.push(snap()); restore(undoStack.pop()); onChange(); }
+  function redo() { if (!redoStack.length) return; undoStack.push(snap()); restore(redoStack.pop()); onChange(); }
+
+  /* -------- decorations -------- */
+  const stickerGeo = new THREE.PlaneGeometry(1, 1);
+  const stickMat = new THREE.MeshStandardMaterial({ color: '#b5523f', roughness: .8 });
+  const coatMat = new THREE.MeshStandardMaterial({ color: '#7b6656', roughness: .9 });
+  const emberMat = new THREE.MeshBasicMaterial({ color: '#ff8a4a' });
+  const stickGeo = new THREE.CylinderGeometry(.012, .012, .5, 6).translate(0, .25, 0);
+  const coatGeo = new THREE.CylinderGeometry(.018, .018, .38, 6).translate(0, .69, 0);
+  const emberGeo = new THREE.SphereGeometry(.021, 8, 6).translate(0, .885, 0);
+  const candleGeo = new THREE.CylinderGeometry(.075, .08, .3, 20).translate(0, .15, 0);
+  const wickGeo = new THREE.CylinderGeometry(.006, .006, .05, 4).translate(0, .325, 0);
+
+  function makeSticker(kind, color) {
+    const D = DECOR[kind];
+    const t = texCache[kind] || (texCache[kind] = tex(D.draw));
+    const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, toneMapped: false });
+    if (D.tint) m.color.set(color);
+    const o = new THREE.Mesh(stickerGeo, m); o.renderOrder = 2; return o;
+  }
+  function makeIncense(kind, color) {
+    const g = new THREE.Group();
+    if (kind === 'candle') {
+      const body = new THREE.Mesh(candleGeo, glow(new THREE.MeshStandardMaterial({ color, roughness: .55 }), 'mk-candle'));
+      const wick = new THREE.Mesh(wickGeo, new THREE.MeshBasicMaterial({ color: '#3a2a20' }));
+      const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      fl.position.y = .42; fl.scale.set(.14, .24, 1);
+      const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .5, toneMapped: false }));
+      gl.position.y = .4; gl.scale.set(.6, .6, 1);
+      g.add(body, wick, fl, gl); flames.push(fl, gl); g.userData.flames = [fl, gl];
+    } else {
+      const n = kind === 'incense3' ? 3 : 1;
+      for (let i = 0; i < n; i++) {
+        const s = new THREE.Group();
+        s.add(new THREE.Mesh(stickGeo, stickMat), new THREE.Mesh(coatGeo, coatMat), new THREE.Mesh(emberGeo, emberMat));
+        const ember = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .8, toneMapped: false }));
+        ember.position.y = .885; ember.scale.set(.12, .12, 1); s.add(ember);
+        if (n === 3) { s.rotation.z = (i - 1) * .16; s.position.x = (i - 1) * .03; }
+        g.add(s);
+      }
+    }
+    return g;
+  }
+  function nearestVertex(x, y, z) {
+    let best = 0, bd = 1e9;
+    for (let i = 0; i < NV; i++) { const dx = P[i * 3] - x, dy = P[i * 3 + 1] - y, dz = P[i * 3 + 2] - z, d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = i; } }
+    return best;
+  }
+  function addDecor(kind, vi, scale, color, basePos) {
+    const isInc = kind in INCENSE;
+    const obj = isInc ? makeIncense(kind, color) : makeSticker(kind, color);
+    const d = { kind, vi, obj, scale, color, base: basePos, inc: isInc };
+    obj.scale.setScalar(scale);
+    piece.add(obj); decor.push(d); updateDecor(d); dirty = true;
+    return d;
+  }
+  const _n = new THREE.Vector3(), _p = new THREE.Vector3(), _dir = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _m = new THREE.Matrix4();
+  function updateDecor(d) {
+    if (d.base) { _p.fromArray(d.base); _n.set(0, 1, 0); }
+    else { const N = geo.attributes.normal.array; _p.fromArray(P, d.vi * 3); _n.fromArray(N, d.vi * 3).normalize(); }
+    if (d.inc) {
+      _dir.copy(_n).lerp(UP, .8).normalize();
+      d.obj.quaternion.setFromUnitVectors(UP, _dir);
+      d.obj.position.copy(_p).addScaledVector(_dir, -.05 * d.scale);
+    } else {
+      // keep stickers upright: x along the horizon, y as close to world up as the surface allows
+      _x.crossVectors(UP, _n); if (_x.lengthSq() < 1e-4) _x.set(1, 0, 0); _x.normalize(); _y.crossVectors(_n, _x);
+      d.obj.quaternion.setFromRotationMatrix(_m.makeBasis(_x, _y, _n));
+      d.obj.position.copy(_p).addScaledVector(_n, .012);
+    }
+  }
+  function clearDecorObjs() {
+    for (const d of decor) { piece.remove(d.obj); d.obj.traverse(o => { if (o.material && o.material.map !== undefined && !o.isSprite && o.material !== stickMat && o.material !== coatMat && o.material !== emberMat) o.material.dispose?.(); }); }
+    decor = []; flames = []; dirty = true;
+  }
+  function rebuildFlames() { flames = []; for (const d of decor) if (d.obj.userData.flames) flames.push(...d.obj.userData.flames); }
+
+  /* -------- brushes -------- */
+  const hitL = new THREE.Vector3(), nArea = new THREE.Vector3();
+  function brush(hx, hy, hz, nx, ny, nz, mirror) {
+    if (mirror) { hx = -hx; nx = -nx; }
+    const R = radius(), R2 = R * R, s = st.strength, sub = st.sub, N = geo.attributes.normal.array;
+    const sign = (sub === 'dig' || sub === 'deflate') ? -1 : 1;
+    const list = [];
+    for (let i = 0; i < NV; i++) {
+      const dx = P[i * 3] - hx, dy = P[i * 3 + 1] - hy, dz = P[i * 3 + 2] - hz, d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > R2) continue;
+      let f = 1 - d2 / R2; f *= f;
+      if (sub === 'add' || sub === 'dig') { const a = .014 * s * f * sign; P[i * 3] += nx * a; P[i * 3 + 1] += ny * a; P[i * 3 + 2] += nz * a; }
+      else if (sub === 'inflate' || sub === 'deflate') { const a = .012 * s * f * sign; P[i * 3] += N[i * 3] * a; P[i * 3 + 1] += N[i * 3 + 1] * a; P[i * 3 + 2] += N[i * 3 + 2] * a; }
+      else if (sub === 'crease') { const a = .07 * s * f; P[i * 3] -= dx * a + nx * .004 * s * f; P[i * 3 + 1] -= dy * a + ny * .004 * s * f; P[i * 3 + 2] -= dz * a + nz * .004 * s * f; }
+      else if (sub === 'smooth') list.push(i, f);
+    }
+    if (list.length) {
+      const tmp = new Float32Array(list.length / 2 * 3);
+      for (let j = 0; j < list.length; j += 2) {
+        const i = list[j]; let ax = 0, ay = 0, az = 0; const a0 = adjStart[i], a1 = adjStart[i + 1];
+        for (let k = a0; k < a1; k++) { const v = adjList[k]; ax += P[v * 3]; ay += P[v * 3 + 1]; az += P[v * 3 + 2]; }
+        const c = a1 - a0 || 1; tmp[j / 2 * 3] = ax / c; tmp[j / 2 * 3 + 1] = ay / c; tmp[j / 2 * 3 + 2] = az / c;
+      }
+      for (let j = 0; j < list.length; j += 2) {
+        const i = list[j], f = list[j + 1] * (.25 + .5 * s);
+        P[i * 3] += (tmp[j / 2 * 3] - P[i * 3]) * f; P[i * 3 + 1] += (tmp[j / 2 * 3 + 1] - P[i * 3 + 1]) * f; P[i * 3 + 2] += (tmp[j / 2 * 3 + 2] - P[i * 3 + 2]) * f;
+      }
+    }
+    geoDirty = true;
+  }
+  const paintCol = new THREE.Color();
+  function paint(hx, hy, hz, mirror) {
+    if (mirror) hx = -hx;
+    const R = radius(), R2 = R * R, a0 = .25 + .5 * st.strength;
+    for (let i = 0; i < NV; i++) {
+      const dx = P[i * 3] - hx, dy = P[i * 3 + 1] - hy, dz = P[i * 3 + 2] - hz, d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > R2) continue;
+      const f = Math.min(1, (1 - d2 / R2) * 1.6) * a0;
+      C[i * 3] += (paintCol.r - C[i * 3]) * f; C[i * 3 + 1] += (paintCol.g - C[i * 3 + 1]) * f; C[i * 3 + 2] += (paintCol.b - C[i * 3 + 2]) * f;
+    }
+    colDirty = true;
+  }
+  // grab
+  let grab = null;
+  const plane = new THREE.Plane(), ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmpV = new THREE.Vector3();
+  function startGrab(hit) {
+    const R = radius() * 1.25, R2 = R * R, pts = [];
+    const sets = [[hit.point.x, 1]]; if (st.sym && Math.abs(hit.point.x) > R * .4) sets.push([-hit.point.x, -1]);
+    for (const [hx, mx] of sets) {
+      for (let i = 0; i < NV; i++) {
+        const dx = P[i * 3] - hx, dy = P[i * 3 + 1] - hit.point.y, dz = P[i * 3 + 2] - hit.point.z, d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 > R2) continue; let f = 1 - d2 / R2; f *= f; pts.push(i, f, mx);
+      }
+    }
+    camera.getWorldDirection(tmpV); plane.setFromNormalAndCoplanarPoint(tmpV, hit.point);
+    grab = { start: hit.point.clone(), pts, orig: P.slice() };
+  }
+  function moveGrab(cx, cy) {
+    setRay(cx, cy); const p = ray.ray.intersectPlane(plane, tmpV); if (!p) return;
+    const k = .6 + .8 * st.strength;
+    const dx = (p.x - grab.start.x) * k, dy = (p.y - grab.start.y) * k, dz = (p.z - grab.start.z) * k;
+    const { pts, orig } = grab;
+    for (let j = 0; j < pts.length; j += 3) {
+      const i = pts[j], f = pts[j + 1], m = pts[j + 2];
+      P[i * 3] = orig[i * 3] + dx * f * m; P[i * 3 + 1] = orig[i * 3 + 1] + dy * f; P[i * 3 + 2] = orig[i * 3 + 2] + dz * f;
+    }
+    geoDirty = true;
+  }
+
+  /* -------- picking -------- */
+  function setRay(cx, cy) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set((cx - r.left) / r.width * 2 - 1, -(cy - r.top) / r.height * 2 + 1); ray.setFromCamera(ndc, camera);
+  }
+  function pick(cx, cy) {
+    setRay(cx, cy);
+    const h = ray.intersectObjects([clay, base], false)[0];
+    if (!h) return null;
+    const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+    return { obj: h.object === clay ? 'clay' : 'base', point: h.point.clone(), normal: n };
+  }
+  function showCursor(hit) {
+    cursor.visible = true; cursor.position.copy(hit.point).addScaledVector(hit.normal, .01);
+    cursor.quaternion.setFromUnitVectors(ZAX, hit.normal); cursor.scale.setScalar(radius()); dirty = true;
+  }
+
+  /* -------- actions -------- */
+  function canUse(hit) {
+    if (st.tab === 'view') return false;
+    if (st.tab === 'shape' || st.tab === 'decor') return hit.obj === 'clay';
+    return true;
+  }
+  function doStroke(hit) {
+    if (st.tab === 'shape') {
+      const p = hit.point, n = hit.normal;
+      brush(p.x, p.y, p.z, n.x, n.y, n.z, false);
+      if (st.sym && Math.abs(p.x) > radius() * .4) brush(p.x, p.y, p.z, n.x, n.y, n.z, true);
+    } else if (st.tab === 'paint' && st.sub === 'brush') {
+      if (hit.obj === 'base') { baseMat.color.set(st.color); dirty = true; return; }
+      paint(hit.point.x, hit.point.y, hit.point.z, false);
+      if (st.sym && Math.abs(hit.point.x) > radius() * .4) paint(hit.point.x, hit.point.y, hit.point.z, true);
+    }
+    showCursor(hit);
+  }
+  function place(hit) {
+    const kind = st.sub, isInc = kind in INCENSE;
+    const scale = isInc ? .6 + st.size * .8 : DECOR[kind].size * (.5 + st.size * 1.4) * 2;
+    const put = (x, y, z) => {
+      if (hit.obj === 'base') addDecor(kind, -1, scale, st.color, [x, BASE_TOP, z]);
+      else addDecor(kind, nearestVertex(x, y, z), scale, st.color, null);
+    };
+    const p = hit.point; put(p.x, p.y, p.z);
+    const pair = isInc || DECOR[kind]?.pair;
+    if (st.sym && pair && Math.abs(p.x) > .07) put(-p.x, p.y, p.z);
+    rebuildFlames();
+  }
+  function begin(hit) {
+    pushUndo();
+    const { tab, sub } = st;
+    if (tab === 'shape') { if (sub === 'grab') { startGrab(hit); showCursor(hit); return 'grab'; } doStroke(hit); return 'stroke'; }
+    if (tab === 'paint') {
+      if (sub === 'brush') { doStroke(hit); return 'stroke'; }
+      if (hit.obj === 'base') baseMat.color.set(st.color);
+      else if (sub === 'fill') { for (let i = 0; i < NV; i++) { C[i * 3] = paintCol.r; C[i * 3 + 1] = paintCol.g; C[i * 3 + 2] = paintCol.b; } colDirty = true; }
+      else gradientFill(BRAND);
+      dirty = true; return 'tap';
+    }
+    place(hit); return 'tap';
+  }
+
+  /* -------- pointer input -------- */
+  const pointers = new Map();
+  let mode = null, last = null, pinch0 = null, pending = null;
+  canvas.style.touchAction = 'none';
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); canvas.setPointerCapture?.(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      if (mode === 'stroke' || mode === 'grab') endStroke();
+      mode = 'pinch'; const [a, b] = [...pointers.values()];
+      pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: view.fit, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+      return;
+    }
+    if (pointers.size > 2) return;
+    last = { x: e.clientX, y: e.clientY };
+    const hit = pick(e.clientX, e.clientY);
+    mode = hit && canUse(hit) ? begin(hit) : 'orbit';
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (mode === 'pinch' && pointers.size === 2) {
+      const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      view.fit = Math.min(14, Math.max(3, pinch0.dist * pinch0.d / Math.max(20, d)));
+      view.yaw -= (mx - pinch0.mx) * .008; view.pitch = Math.min(1.2, Math.max(-.15, view.pitch + (my - pinch0.my) * .005));
+      pinch0.mx = mx; pinch0.my = my; placeCamera(); return;
+    }
+    if (mode === 'orbit') {
+      view.yaw -= (e.clientX - last.x) * .009; view.pitch = Math.min(1.2, Math.max(-.15, view.pitch + (e.clientY - last.y) * .006));
+      last = { x: e.clientX, y: e.clientY }; placeCamera(); return;
+    }
+    if (mode === 'stroke' || mode === 'grab') pending = { x: e.clientX, y: e.clientY };
+  });
+  const up = (e) => {
+    pointers.delete(e.pointerId);
+    if (mode === 'stroke' || mode === 'grab') endStroke();
+    if (pointers.size === 1 && mode === 'pinch') { const p = [...pointers.values()][0]; last = { x: p.x, y: p.y }; mode = 'orbit'; }
+    else if (!pointers.size) mode = null;
+  };
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); view.fit = Math.min(14, Math.max(3, view.fit * (1 + e.deltaY * .001))); placeCamera(); }, { passive: false });
+  function endStroke() { grab = null; pending = null; cursor.visible = false; mode = null; dirty = true; geoDirty = true; onChange(); }
+
+  /* -------- camera / size -------- */
+  function placeCamera() {
+    const d = view.fit;
+    camera.position.set(Math.sin(view.yaw) * Math.cos(view.pitch) * d, target.y + Math.sin(view.pitch) * d, Math.cos(view.yaw) * Math.cos(view.pitch) * d);
+    camera.lookAt(target); dirty = true;
+  }
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    const t = Math.tan(THREE.MathUtils.degToRad(19));
+    view.fit = Math.max(1.75 / (t * camera.aspect), 1.5 / t);
+    placeCamera();
+  }
+  const ro = new ResizeObserver(resize); ro.observe(host);
+
+  /* -------- loop -------- */
+  let raf = 0, frameN = 0, paused = false;
+  function frame(t) {
+    raf = requestAnimationFrame(frame);
+    if (paused || document.hidden) return;
+    frameN++;
+    if (pending) {
+      const p = pending; pending = null;
+      if (mode === 'grab') moveGrab(p.x, p.y);
+      else if (mode === 'stroke') { const hit = pick(p.x, p.y); if (hit && canUse(hit)) doStroke(hit); }
+    }
+    if (geoDirty) {
+      geo.computeVertexNormals(); geo.attributes.position.needsUpdate = true; geo.computeBoundingSphere();
+      for (const d of decor) updateDecor(d);
+      geoDirty = false; dirty = true;
+    }
+    if (colDirty) { geo.attributes.color.needsUpdate = true; colDirty = false; dirty = true; }
+    if (flames.length && frameN % 2 === 0) {
+      const s = 1 + Math.sin(t * .013) * .06 + Math.sin(t * .031) * .04;
+      for (const f of flames) { if (!f.userData.s0) f.userData.s0 = f.scale.clone(); f.scale.set(f.userData.s0.x * s, f.userData.s0.y * (2 - s), 1); }
+      dirty = true;
+    }
+    if (dirty) { renderer.render(scene, camera); dirty = false; }
+  }
+  raf = requestAnimationFrame(frame);
+
+  /* -------- snapshot (transparent PNG cropped to the piece) -------- */
+  function snapshot(max = 640) {
+    cursor.visible = false;
+    renderer.render(scene, camera);
+    const src = renderer.domElement, W = src.width, H = src.height;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, W, H).data; let x0 = W, x1 = 0, y0 = H, y1 = 0;
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (d[(y * W + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 <= x0) { x0 = 0; y0 = 0; x1 = W - 1; y1 = H - 1; }
+    const pad = 8, sw = x1 - x0 + pad * 2, sh = y1 - y0 + pad * 2, k = Math.min(1, max / Math.max(sw, sh));
+    const out = document.createElement('canvas'); out.width = Math.round(sw * k); out.height = Math.round(sh * k);
+    out.getContext('2d').drawImage(c, x0 - pad, y0 - pad, sw, sh, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  /* -------- public api -------- */
+  paintCol.set(st.color);
+  applyTemplate('round');
+  resize();
+  return {
+    setTool(tab, sub) { st.tab = tab; if (sub) st.sub = sub; },
+    setColor(hex) { st.color = hex; paintCol.set(hex); },
+    setSize(v) { st.size = v; }, setStrength(v) { st.strength = v; }, setSymmetry(b) { st.sym = b; },
+    get state() { return { ...st, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0, decorCount: decor.length }; },
+    undo, redo, reset: applyTemplate,
+    clearDecor() { if (!decor.length) return; pushUndo(); clearDecorObjs(); onChange(); },
+    frontView() { view.yaw = 0; view.pitch = .22; resize(); },
+    snapshot, resize,
+    pause() { paused = true; }, resume() { paused = false; dirty = true; resize(); },
+  };
+}

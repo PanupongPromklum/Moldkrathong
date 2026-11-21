@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#11152c">
+<title>Moldkrathong · ปั้นกระทงไปลอยด้วยกัน</title>
+<meta name="description" content="ปั้นกระทงในแบบของคุณกับก้อนนุ่ม Moldable แล้วไปลอยด้วยกันในแผนที่จริง">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&family=Poppins:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ MAP ============ -->
+  <section id="screen-map" class="screen active" aria-label="แผนที่">
+    <div id="map"></div>
+    <header class="map-top">
+      <div class="brand">Mold<span>krathong</span></div>
+      <p>แตะหมุดเพื่อเลือกที่ลอยกระทง</p>
+    </header>
+    <a class="elemnt-badge" href="https://elemnt.earth" target="_blank" rel="noopener">Powered by ELEMNT</a>
+
+    <div class="sheet" id="sheet" hidden>
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <canvas class="sheet-ava" id="sheet-ava"></canvas>
+        <div><h2 id="sheet-title"></h2><p id="sheet-sub"></p></div>
+        <button class="icon-btn ghost" id="sheet-close" aria-label="ปิด"><svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+      </div>
+      <div class="sheet-body" id="sheet-body"></div>
+    </div>
+  </section>
+
+  <!-- ============ STUDIO ============ -->
+  <section id="screen-studio" class="screen" aria-label="ปั้นกระทง">
+    <header class="studio-top">
+      <button class="icon-btn" id="btn-back" aria-label="กลับไปแผนที่"><svg viewBox="0 0 24 24"><path d="M15.7 4.3a1 1 0 0 1 0 1.4L9.4 12l6.3 6.3a1 1 0 1 1-1.4 1.4l-7-7a1 1 0 0 1 0-1.4l7-7a1 1 0 0 1 1.4 0z"/></svg></button>
+      <div class="studio-title"><small>ปั้นกระทงไปลอยที่</small><b id="studio-spot">-</b></div>
+      <button class="icon-btn" id="btn-undo" aria-label="ย้อนกลับ" disabled><svg viewBox="0 0 24 24"><path d="M9.5 4.5a1 1 0 0 1 0 1.4L7.4 8H14a6 6 0 1 1 0 12h-3a1 1 0 1 1 0-2h3a4 4 0 0 0 0-8H7.4l2.1 2.1a1 1 0 1 1-1.4 1.4L4.3 9.7a1 1 0 0 1 0-1.4l3.8-3.8a1 1 0 0 1 1.4 0z"/></svg></button>
+      <button class="icon-btn" id="btn-redo" aria-label="ทำซ้ำ" disabled><svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M9.5 4.5a1 1 0 0 1 0 1.4L7.4 8H14a6 6 0 1 1 0 12h-3a1 1 0 1 1 0-2h3a4 4 0 0 0 0-8H7.4l2.1 2.1a1 1 0 1 1-1.4 1.4L4.3 9.7a1 1 0 0 1 0-1.4l3.8-3.8a1 1 0 0 1 1.4 0z"/></svg></button>
+      <button class="btn-primary sm" id="btn-done">เสร็จแล้ว</button>
+    </header>
+
+    <div class="stage" id="stage">
+      <div class="helper" id="helper"><canvas id="helper-ava"></canvas><div class="bubble"><b id="helper-name"></b><span id="helper-tip"></span></div></div>
+      <div class="loading" id="stage-loading"><canvas id="loading-ava"></canvas><span>แอ๊คกำลังเตรียมดินปั้น…</span></div>
+    </div>
+
+    <div class="tools">
+      <div class="subtools" id="subtools"></div>
+      <div class="sliders" id="sliders">
+        <label class="slider" id="sl-size"><span>ขนาด</span><input type="range" min="0" max="1" step="0.01" value="0.45" id="in-size"></label>
+        <label class="slider" id="sl-strength"><span>แรง</span><input type="range" min="0.1" max="1" step="0.01" value="0.55" id="in-strength"></label>
+        <button class="toggle on" id="tg-sym" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M11 3h2v18h-2zM9 6v12L3 12zm6 0 6 6-6 6z"/></svg>ซ้ายขวาเหมือนกัน</button>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button data-tab="template"><svg viewBox="0 0 24 24"><path d="M12 3c4.8 0 8 3.4 8 8.2 0 5.3-3.6 9.8-8 9.8s-8-4.5-8-9.8C4 6.4 7.2 3 12 3z"/></svg>ทรง</button>
+        <button data-tab="shape" class="active"><svg viewBox="0 0 24 24"><path d="M9 2.5c1.1 0 2 .9 2 2V10h1V3.5a2 2 0 1 1 4 0V10h1V5.5a2 2 0 1 1 4 0v8.8c0 4.3-3.4 7.7-7.7 7.7h-1.6c-2.2 0-4.2-1-5.6-2.6L2.6 15a1.8 1.8 0 0 1 2.7-2.4L7 14.2V4.5c0-1.1.9-2 2-2z"/></svg>ปั้น</button>
+        <button data-tab="paint"><svg viewBox="0 0 24 24"><path d="M12 2.5s7 7.3 7 12a7 7 0 1 1-14 0c0-4.7 7-12 7-12z"/></svg>สี</button>
+        <button data-tab="decor"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-3.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-8 5.5c.9 2 2.6 3.2 4.5 3.2s3.6-1.2 4.5-3.2z"/></svg>แต่ง</button>
+        <button data-tab="incense"><svg viewBox="0 0 24 24"><path d="M11 9h2v13h-2zM7 11h2v11H7zm8 0h2v11h-2z"/><circle cx="12" cy="6" r="2.4"/><circle cx="8" cy="8.4" r="1.8"/><circle cx="16" cy="8.4" r="1.8"/></svg>ธูป</button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- ============ DONE ============ -->
+  <div class="modal" id="modal-done" hidden>
+    <div class="modal-card">
+      <div class="water-preview"><img id="done-img" alt="กระทงที่ปั้น"></div>
+      <h2>กระทงสวยมาก!</h2>
+      <p class="muted">ขั้นต่อไป (กำลังทำ): เขียนคำอธิษฐาน แล้วลอยที่ <b id="done-spot"></b></p>
+      <div class="row">
+        <button class="btn-ghost" id="done-back">ปั้นต่อ</button>
+        <button class="btn-primary" id="done-save">บันทึกรูป</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ INTRO ============ -->
+  <div class="intro" id="intro">
+    <div class="intro-chars" id="intro-chars"></div>
+    <h1 class="brand big">Mold<span>krathong</span></h1>
+    <p>ปั้นกระทงในแบบของคุณ<br>แล้วไปลอยด้วยกันในแม่น้ำจริง</p>
+    <button class="btn-primary lg" id="btn-start">เริ่มเลย</button>
+    <small class="intro-by">ทำด้วยใจโดย Moldable Studio</small>
+  </div>
+</div>
+
+<script src="lib/maplibre-gl.js"></script>
+<script src="lib/pmtiles.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
