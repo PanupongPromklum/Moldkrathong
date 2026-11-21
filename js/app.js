@@ -1,5 +1,5 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO } from './config.js';
+import { SPOTS, STUDIO, READY } from './config.js';
 import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js';
 import { createMap } from './map.js';
 import { makeCard, makeStory, BACKDROPS } from './card.js';
@@ -9,21 +9,26 @@ import { icon, iconEl } from './icons.js';
 import { paintBackdrop, createLife } from './scene.js';
 
 const $ = (s) => document.querySelector(s);
-const show = (id) => { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); };
+const show = (id) => {
+  document.querySelectorAll('.screen').forEach(s => { const on = s.id === id; if (on && !s.classList.contains('active')) { s.classList.remove('enter'); void s.offsetWidth; s.classList.add('enter'); } s.classList.toggle('active', on); });
+};
 
 /* ---------------- intro ---------------- */
 // put a duotone icon in front of every element that asks for one
 function decorate(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (!el.querySelector(':scope > .ico')) el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); }); }
 decorate();
-for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 40, mood: 'smile' }));
+for (const k of CHAR_KEYS) {
+  const c = charCanvas(k, { size: 44, mood: 'smile' }); $('#intro-chars').append(c);
+  c.addEventListener('pointerdown', () => c.animate([{ transform: 'translateY(0) scale(1)' }, { transform: 'translateY(2px) scale(1.15,.8)' }, { transform: 'translateY(-18px) scale(.9,1.1)' }, { transform: 'translateY(0) scale(1.06,.94)' }, { transform: 'none' }], { duration: 620, easing: 'ease-out' }));
+}
 // living moonlit scene behind the intro
 (function introScene() {
   const cv = $('#intro-scene'), g = cv.getContext('2d'); let life, W, H, dpr, bg, raf;
   const size = () => {
     dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr;
-    const horizon = Math.round(H * .56); bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
-    const b = bg.getContext('2d'); b.setTransform(dpr, 0, 0, dpr, 0, 0); const moon = { x: W * .8, y: horizon - 70, r: 24 };
-    paintBackdrop(b, W, H, { horizon, spot: 'moldable', moon });
+    const horizon = Math.round(H * .64); bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
+    const b = bg.getContext('2d'); b.setTransform(dpr, 0, 0, dpr, 0, 0); const moon = { x: W * .8, y: horizon - 190, r: 26 };
+    paintBackdrop(b, W, H, { horizon, spot: 'rama8', moon, hero: 1.9 });
     life = createLife(W, H, horizon, { lanterns: 9, moon });
   };
   size(); addEventListener('resize', size);
@@ -31,7 +36,6 @@ for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 40, mo
   const loop = (t) => { raf = requestAnimationFrame(loop); if ($('#intro').classList.contains('hide')) { cancelAnimationFrame(raf); return; } if (t - last < 33) return; const dt = (t - last) / 1000; last = t; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(bg, 0, 0); g.setTransform(dpr, 0, 0, dpr, 0, 0); life.draw(g, t, Math.min(.1, dt)); };
   raf = requestAnimationFrame(loop);
 })();
-$('#intro-art').innerHTML = krathongArt();
 
 // Illustrated krathong on moonlit water (SVG, no 3D needed on the first screen).
 function krathongArt() {
@@ -87,7 +91,7 @@ function openSpot(spot) {
     <p class="sheet-say">${spot.studio ? 'บ่อเล็กๆ หน้าบ้านพวกเรา ใครก็มาลอยได้นะ' : 'ปั้นกระทงเองหรือรับใบที่ปั้นไว้แล้วก็ได้ แล้วไปลอยด้วยกัน'}</p>
     <div class="sheet-actions">
       <div class="row">
-        <button class="btn-cream" id="act-free" data-icon="gift">รับกระทงฟรี</button>
+        <button class="btn-cream" id="act-free" data-icon="gift">เลือกกระทง</button>
         <button class="btn-surface" id="act-river" data-icon="wave">ดูแม่น้ำ</button>
       </div>
       <button class="btn-primary" id="act-sculpt" data-icon="shape">ปั้นกระทงเอง</button>
@@ -149,17 +153,17 @@ function renderTools() {
   const box = $('#subtools'); box.innerHTML = ''; $('#tools').dataset.cat = tab;
   document.querySelector('.swatches')?.remove();
   const sl = $('#sliders'), slS = $('#sl-size'), slF = $('#sl-strength'), sym = $('#tg-sym');
-  sl.hidden = false; slS.hidden = false; slF.hidden = false; sym.hidden = false;
+  sl.hidden = false; slS.hidden = false; slF.hidden = false; sym.hidden = false; $('#sl-base').hidden = true;
   const st = studio.state;
   const add = (b, fn) => { b.addEventListener('click', fn); box.append(b); };
   if (tab === 'template') {
-    sl.hidden = true;
+    slS.hidden = true; slF.hidden = true; sym.hidden = true; $('#sl-base').hidden = false; $('#in-base').value = studio.baseSize;
     for (const t of mod.TEMPLATES) add(tile(t.th, st.template === t.id, tplIcon(t.id)), async () => {
       if (studio.dirtyWork && !(await askReset('เปลี่ยนเป็นทรง' + t.th + '?'))) return;
       studio.reset(t.id); renderTools();
     });
     box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
-    for (const [ic, th, sx, sy] of RESIZE) add(tile(th, false, iconEl(ic)), () => studio.scaleAll(sx, sy));
+    for (const [ic, th, sx, sy] of RESIZE) add(tile(th, false, iconEl(ic)), () => { if (!studio.scaleAll(sx, sy)) tip(sx > 1 || sy > 1 ? 'ใหญ่สุดแล้ว เดี๋ยวล้นจอ' : 'เล็กสุดแล้วจ้า'); });
     add(tile('เริ่มใหม่', false, iconEl('reset'), 'danger'), async () => { if (await askReset('เริ่มปั้นใหม่?')) { studio.reset(st.template); renderTools(); } });
     return;
   }
@@ -212,6 +216,11 @@ function setTab(t) {
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => studio && setTab(b.dataset.tab)));
 $('#in-size').addEventListener('input', e => studio?.setSize(+e.target.value));
 $('#in-strength').addEventListener('input', e => studio?.setStrength(+e.target.value));
+$('#in-base').addEventListener('input', e => studio?.setBaseSize(+e.target.value));
+$('#btn-front').addEventListener('click', () => studio?.frontView());
+$('#mz-in').addEventListener('click', () => mapApi?.zoomIn());
+$('#mz-out').addEventListener('click', () => mapApi?.zoomOut());
+$('#mz-all').addEventListener('click', () => { $('#sheet').hidden = true; mapApi?.fitAll(); });
 $('#tg-sym').addEventListener('click', e => { const b = e.currentTarget, on = !b.classList.contains('on'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); studio?.setSymmetry(on); });
 $('#btn-undo').addEventListener('click', () => studio?.undo());
 $('#del-btn').addEventListener('click', () => studio?.deleteSelected());
@@ -270,7 +279,7 @@ $('#bg-chips').innerHTML = BACKDROPS.map(b => `<button data-bg="${b.id}">${b.th}
 $('#bg-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { bg = b.dataset.bg; refreshCard(); } });
 $('#btn-done').addEventListener('click', async () => {
   if (!studio) return;
-  studio.frontView();
+  studio.deselect?.(); studio.frontView(true);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   lastShot = studio.snapshot(900);
   bg = currentSpot.id;
@@ -279,6 +288,10 @@ $('#btn-done').addEventListener('click', async () => {
   setHelper('done');
 });
 $('#done-back').addEventListener('click', () => { $('#modal-done').hidden = true; });
+$('#done-keep').addEventListener('click', () => {
+  if (!lastShot || !keepMine(lastShot)) return toast('เก็บไม่ได้ ที่เก็บในเครื่องเต็ม');
+  $('#modal-done').hidden = true; toast('เก็บไว้ใน "กระทงของฉัน" แล้ว', 'ไปแผนที่', () => history.back());
+});
 $('#done-float').addEventListener('click', () => { $('#modal-done').hidden = true; openWish(lastShot, currentSpot); });
 $('#done-save').addEventListener('click', () => {
   if (!lastCard) return;
@@ -309,8 +322,9 @@ function toUploadBlob(canvasOrImg) {
   c.getContext('2d').drawImage(canvasOrImg, 0, 0, c.width, c.height);
   return new Promise(res => c.toBlob(b => b && b.type === 'image/webp' ? res(b) : c.toBlob(res, 'image/png'), 'image/webp', .86));
 }
-function openWish(shot, spot) {
-  wishShot = shot; wishSpot = spot;
+let wishMine = null;
+function openWish(shot, spot, mineId = null) {
+  wishShot = shot; wishSpot = spot; wishMine = mineId;
   $('#wish-img').src = shot.toDataURL ? shot.toDataURL('image/png') : shot.src;
   $('#wish-where').textContent = 'ลอยที่ ' + spot.name;
   $('#wish-go').disabled = false; $('#wish-go').querySelector('span').textContent = 'ลอยเลย';
@@ -325,6 +339,7 @@ $('#wish-go').addEventListener('click', async () => {
   try {
     const blob = await toUploadBlob(wishShot);
     const row = await data.float({ spot: wishSpot.id, blob, nickname: $('#wish-name').value, wish: $('#wish-text').value, isPublic: $('#wish-pub').classList.contains('on') });
+    if (wishMine) dropMine(wishMine);
     myLast = { row, shot: wishShot, spot: wishSpot, nickname: $('#wish-name').value.trim(), wish: $('#wish-pub').classList.contains('on') ? $('#wish-text').value.trim() : '' };
     $('#modal-wish').hidden = true; $('#wish-text').value = ''; $('#wish-count').textContent = '0/60';
     if ($('#screen-studio').classList.contains('active')) { studio?.pause(); history.replaceState({ s: 'river' }, ''); } else history.pushState({ s: 'river' }, '');
@@ -335,18 +350,36 @@ $('#wish-go').addEventListener('click', async () => {
   }
 });
 
-/* ---------------- free krathong ---------------- */
+/* ---------------- choose a krathong: mine (kept) + ready-made ---------------- */
+const MINE = 'mk-mine';
+const getMine = () => { try { return JSON.parse(localStorage.getItem(MINE) || '[]'); } catch (_) { return []; } };
+function keepMine(canvas) {
+  const k = Math.min(1, 420 / Math.max(canvas.width, canvas.height)), c = document.createElement('canvas');
+  c.width = Math.round(canvas.width * k); c.height = Math.round(canvas.height * k); c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
+  let url = c.toDataURL('image/webp', .86); if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/png');
+  const list = getMine(); list.unshift({ id: 'm' + Date.now(), img: url }); 
+  try { localStorage.setItem(MINE, JSON.stringify(list.slice(0, 8))); return true; } catch (_) { return false; }
+}
+function dropMine(id) { try { localStorage.setItem(MINE, JSON.stringify(getMine().filter(m => m.id !== id))); } catch (_) {} }
 let freeSpot = null;
 function openFree(spot) {
   freeSpot = spot; $('#sheet').hidden = true;
-  $('#free-grid').innerHTML = CHAR_KEYS.map(k => `<button data-k="${k}"><img src="assets/free/${k}.png" alt="กระทง${CHARS[k].name}"><span>${CHARS[k].name}</span></button>`).join('');
+  const mine = getMine();
+  $('#mine-wrap').hidden = !mine.length;
+  $('#mine-grid').innerHTML = mine.map((m, i) => `<button data-mine="${m.id}"><img src="${m.img}" alt="กระทงของฉัน ${i + 1}"><span>ใบที่ ${mine.length - i}</span><i class="x" data-drop="${m.id}" aria-label="ลบ">×</i></button>`).join('');
+  $('#free-grid').innerHTML = READY.map(r => `<button data-k="${r.id}"><img src="assets/free/${r.id}.png" alt="${r.name}"><span>${r.name}</span></button>`).join('');
   $('#modal-free').hidden = false;
 }
-$('#free-grid').addEventListener('click', (e) => {
+const pickFrom = (e) => {
+  const drop = e.target.closest('[data-drop]');
+  if (drop) { e.stopPropagation(); dropMine(drop.dataset.drop); openFree(freeSpot); return; }
   const b = e.target.closest('button'); if (!b) return;
   const im = b.querySelector('img'); if (!im.complete || !im.naturalWidth) return;
-  $('#modal-free').hidden = true; openWish(im, freeSpot);
-});
+  $('#modal-free').hidden = true; openWish(im, freeSpot, b.dataset.mine || null);
+};
+$('#free-grid').addEventListener('click', pickFrom);
+$('#mine-grid').addEventListener('click', pickFrom);
+$('#free-x').addEventListener('click', () => { $('#modal-free').hidden = true; });
 $('#free-back').addEventListener('click', () => { $('#modal-free').hidden = true; });
 
 /* ---------------- river ---------------- */

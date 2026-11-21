@@ -20,5 +20,11 @@ export const STUDIO = {
   ig: 'https://www.instagram.com/moldable.studio/', igName: '@moldable.studio',
 };
 
+// Ready-made krathongs (replace the PNGs in assets/free/ with the team's designs, same file names)
+export const READY = [
+  { id: 'pinklotus', name: 'บัวชมพู' }, { id: 'leaf', name: 'ใบตองเขียว' }, { id: 'heart', name: 'บานเย็น' },
+  { id: 'gold', name: 'ดาวเรืองทอง' }, { id: 'sky', name: 'ฟ้าใส' },
+];
+
 export const MAP_VIEW = { center: [100.522, 13.792], zoom: 12.4, pitch: 50, bearing: -12 };
 export const MAP_BOUNDS = [[100.25, 13.55], [100.85, 14.05]];

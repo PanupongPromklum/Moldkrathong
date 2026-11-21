@@ -18,7 +18,7 @@ function cloud(g, x, y, w, color) {
 
 export function moonPos(W, horizon, s, o) { return o ? { x: o.x, y: o.y, r: (o.r || 30) * s } : { x: W * .76, y: Math.max(54 * s, horizon * .36), r: 30 * s }; }
 
-export function paintBackdrop(g, W, H, { horizon, spot = '', s = W / 390, seed = 7, moon = null }) {
+export function paintBackdrop(g, W, H, { horizon, spot = '', s = W / 390, seed = 7, moon = null, hero = 1 }) {
   const r = rng(seed);
   // sky
   const sky = g.createLinearGradient(0, 0, 0, horizon);
@@ -43,7 +43,7 @@ export function paintBackdrop(g, W, H, { horizon, spot = '', s = W / 390, seed =
   cloud(g, W * .1, horizon * .3, 70 * s, 'rgba(155,176,222,.16)');
   cloud(g, W * .62, m.y + m.r * .9, 80 * s, 'rgba(203,165,209,.2)');
   cloud(g, W * .3, horizon * .68, 110 * s, 'rgba(235,146,179,.12)');
-  skyline(g, W, horizon, spot, s, r);
+  skyline(g, W, horizon, spot, s, r, hero);
   // water
   const wa = g.createLinearGradient(0, horizon, 0, H);
   wa.addColorStop(0, '#3a3f86'); wa.addColorStop(.18, '#2b3375'); wa.addColorStop(.6, '#1f255b'); wa.addColorStop(1, '#151a43');
@@ -55,7 +55,7 @@ export function paintBackdrop(g, W, H, { horizon, spot = '', s = W / 390, seed =
   lotusPads(g, W, H, s, r);
 }
 
-function skyline(g, W, horizon, spot, s, r) {
+function skyline(g, W, horizon, spot, s, r, hero = 1) {
   const far = '#2a2d63', near = '#1c1f4a', rim = 'rgba(235,146,179,.55)';
   // far city blocks
   g.fillStyle = far;
@@ -63,12 +63,14 @@ function skyline(g, W, horizon, spot, s, r) {
   g.fillStyle = 'rgba(255,214,150,.6)';
   for (let i = 0; i < 26; i++) g.fillRect(r() * W, horizon - r() * 26 * s, 1.4 * s, 1.4 * s);
   if (spot === 'rama8') {
-    const px = W * .3, top = horizon - 120 * s, deck = horizon - 18 * s;
+    const px = W * (hero > 1 ? .62 : .3), top = horizon - 120 * s * hero, deck = horizon - 18 * s * Math.min(hero, 1.4);
     g.fillStyle = near; g.fillRect(0, deck, W, 4 * s);
-    g.beginPath(); g.moveTo(px - 7 * s, horizon); g.lineTo(px - 2.5 * s, top); g.lineTo(px + 2.5 * s, top); g.lineTo(px + 7 * s, horizon); g.fill();
-    g.strokeStyle = 'rgba(203,165,209,.55)'; g.lineWidth = .9 * s;
-    for (let i = 1; i <= 10; i++) { g.beginPath(); g.moveTo(px, top + (6 + i * 3.2) * s); g.lineTo(px + i * W * .065, deck); g.stroke(); g.beginPath(); g.moveTo(px, top + (6 + i * 3.2) * s); g.lineTo(px - i * W * .028, deck); g.stroke(); }
-    g.fillStyle = rim; g.fillRect(px - 1 * s, top, 2 * s, 30 * s);
+    const pw = hero;
+    g.beginPath(); g.moveTo(px - 7 * s * pw, horizon); g.lineTo(px - 2.5 * s * pw, top); g.lineTo(px + 2.5 * s * pw, top); g.lineTo(px + 7 * s * pw, horizon); g.fill();
+    g.strokeStyle = 'rgba(203,165,209,.55)'; g.lineWidth = .9 * s * Math.min(pw, 1.5);
+    const n = hero > 1 ? 14 : 10, gap = (hero > 1 ? 5.4 : 3.2) * s;
+    for (let i = 1; i <= n; i++) { g.beginPath(); g.moveTo(px, top + 6 * s + i * gap); g.lineTo(px + i * W * (hero > 1 ? .05 : .065), deck); g.stroke(); g.beginPath(); g.moveTo(px, top + 6 * s + i * gap); g.lineTo(px - i * W * (hero > 1 ? .045 : .028), deck); g.stroke(); }
+    g.fillStyle = rim; g.fillRect(px - 1 * s * pw, top, 2 * s * pw, 30 * s * pw);
     g.fillStyle = 'rgba(255,214,150,.9)'; for (let x = 0; x < W; x += 16 * s) g.fillRect(x, deck - 1.6 * s, 2 * s, 1.6 * s);
   } else if (spot === 'rotfai') {
     g.fillStyle = near;

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/maplibre-gl.css">
-<link rel="stylesheet" href="css/style.css?v=6">
+<link rel="stylesheet" href="css/style.css?v=7">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
 </head>
 <body>
@@ -25,6 +25,11 @@
       <span class="map-hint">แตะหมุดเพื่อเลือกที่ลอย</span>
     </header>
     <a class="elemnt-badge" href="https://elemnt.earth" target="_blank" rel="noopener">Powered by ELEMNT</a>
+    <div class="map-tools">
+      <button id="mz-in" data-icon="plus" aria-label="ขยายแผนที่"></button>
+      <button id="mz-out" data-icon="minus" aria-label="ย่อแผนที่"></button>
+      <button id="mz-all" data-icon="focus" aria-label="ดูทุกจุด"></button>
+    </div>
     <div class="sheet" id="sheet" hidden>
       <div class="grip"></div>
       <div class="sheet-head">
@@ -52,12 +57,14 @@
       <div class="seg">
         <button id="btn-undo" aria-label="ย้อนกลับ" data-icon="undo" disabled></button>
         <button id="btn-redo" aria-label="ทำซ้ำ" data-icon="redo" disabled></button>
+        <button id="btn-front" aria-label="หมุนไปด้านหน้า" data-icon="front"></button>
       </div>
       <button class="btn-primary" id="btn-done" data-icon="check">เสร็จแล้ว</button>
     </div>
     <div class="tools" id="tools">
       <div class="tiles" id="subtools"></div>
       <div class="controls" id="sliders">
+        <label class="ctl" id="sl-base" hidden><span>ขนาดฐาน</span><input type="range" min="0.8" max="1.35" step="0.01" value="1" id="in-base"></label>
         <label class="ctl" id="sl-size"><span>ขนาด</span><input type="range" min="0" max="1" step="0.01" value="0.45" id="in-size"></label>
         <label class="ctl" id="sl-strength"><span>แรง</span><input type="range" min="0.1" max="1" step="0.01" value="0.55" id="in-strength"></label>
         <button class="ctl-btn on" id="tg-sym" aria-pressed="true" aria-label="ซ้ายขวาเหมือนกัน" data-icon="sym"><span>สมมาตร</span></button>
@@ -85,9 +92,8 @@
         <b id="k-name"></b><p id="k-wish"></p><small id="k-time"></small>
         <button class="link-report" id="k-report">รายงานกระทงไม่เหมาะสม</button>
       </div>
-      <div class="toast" id="toast" hidden></div>
       <div class="dock">
-        <button class="btn-cream" id="river-free" data-icon="gift">รับกระทงฟรี</button>
+        <button class="btn-cream" id="river-free" data-icon="gift">เลือกกระทง</button>
         <button class="btn-primary" id="river-sculpt" data-icon="shape">ปั้นกระทง</button>
       </div>
     </div>
@@ -97,11 +103,11 @@
   <div class="modal" id="modal-done" hidden>
     <div class="modal-card">
       <div class="grip"></div>
+      <div class="sheet-top"><h2>ว้าว สวยมาก!</h2><button class="round" id="done-back" aria-label="กลับไปปั้นต่อ" data-icon="close"></button></div>
       <div class="card-prev" id="done-prev"><img id="done-img" alt="กระทงที่ปั้น"></div>
-      <h2>ว้าว สวยมาก!</h2>
       <div class="pills" id="bg-chips"></div>
       <div class="row">
-        <button class="btn-surface" id="done-back">ปั้นต่อ</button>
+        <button class="btn-surface" id="done-keep" data-icon="box">เก็บไว้ก่อน</button>
         <button class="btn-cream" id="done-save" data-icon="save">บันทึกรูป</button>
       </div>
       <button class="btn-primary wide" id="done-float" data-icon="wave">ไปลอยกระทง</button>
@@ -122,8 +128,9 @@
   <div class="modal" id="modal-free" hidden>
     <div class="modal-card">
       <div class="grip"></div>
-      <h2>เลือกกระทงฟรี</h2>
-      <p class="muted">ก้อนนุ่มปั้นไว้ให้แล้ว เลือกได้ 1 ใบ</p>
+      <div class="sheet-top"><h2>เลือกกระทง</h2><button class="round" id="free-x" aria-label="ปิด" data-icon="close"></button></div>
+      <div id="mine-wrap" hidden><h3 class="sec">กระทงของฉัน</h3><div class="free-grid" id="mine-grid"></div></div>
+      <h3 class="sec">กระทงพร้อมลอย</h3>
       <div class="free-grid" id="free-grid"></div>
       <button class="btn-surface wide" id="free-back">ปิด</button>
     </div>
@@ -137,13 +144,14 @@
     </div>
   </div>
 
+  <div class="toast" id="toast" hidden></div>
+
   <!-- ============ INTRO ============ -->
   <div class="intro" id="intro">
     <canvas class="intro-scene" id="intro-scene"></canvas>
     <div class="intro-top"><span class="brand">Mold<span>krathong</span></span><span class="tag">ลอยกระทง 2569</span></div>
     <h1 class="intro-title">ปั้นกระทง<br>ในแบบของคุณ</h1>
     <p class="intro-sub">แล้วไปลอยกับทุกคนในแม่น้ำจริง</p>
-    <div class="intro-art" id="intro-art"></div>
     <div class="intro-cta">
       <div class="intro-chars" id="intro-chars"></div>
       <button class="btn-cream lg" id="btn-start">เริ่มเลย</button>
@@ -154,6 +162,6 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
-<script type="module" src="js/app.js?v=6"></script>
+<script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>

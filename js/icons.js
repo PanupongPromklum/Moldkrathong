@@ -50,6 +50,11 @@ const P = {
   sym: `<rect x="11" y="2" width="2" height="20" rx="1" ${B}/><path d="M9 6v12l-6.5-6zM15 6v12l6.5-6z" ${A}/>`,
   eye: `<path d="M12 5c5 0 8.8 4.3 9.8 7-1 2.7-4.8 7-9.8 7S3.2 14.7 2.2 12C3.2 9.3 7 5 12 5z" ${A}/><circle cx="12" cy="12" r="3.4" ${B}/>`,
   heart: `<path d="M12 21s-8.5-5.4-8.5-11.3A4.7 4.7 0 0 1 12 6.9a4.7 4.7 0 0 1 8.5 2.8C20.5 15.6 12 21 12 21z" ${A}/><ellipse cx="8" cy="9.5" rx="1.6" ry="1" transform="rotate(-35 8 9.5)" fill="#fff" opacity=".6"/>`,
+  plus: `<path d="M12 4.5v15M4.5 12h15" stroke="var(--ia,#CBA5D1)" stroke-width="3.2" stroke-linecap="round"/>`,
+  minus: `<path d="M4.5 12h15" stroke="var(--ia,#CBA5D1)" stroke-width="3.2" stroke-linecap="round"/>`,
+  focus: `<path d="M3.5 8.5v-2a3 3 0 0 1 3-3h2M15.5 3.5h2a3 3 0 0 1 3 3v2M20.5 15.5v2a3 3 0 0 1-3 3h-2M8.5 20.5h-2a3 3 0 0 1-3-3v-2" stroke="var(--ia,#CBA5D1)" stroke-width="2.6" stroke-linecap="round" fill="none"/><circle cx="12" cy="12" r="3.4" ${A}/>`,
+  front: `<path d="M12 3c5 0 8.5 3.4 8.5 8.2 0 5-3.8 9.3-8.5 9.3s-8.5-4.3-8.5-9.3C3.5 6.4 7 3 12 3z" ${A}/><circle cx="9.3" cy="11" r="1.4" ${B}/><circle cx="14.7" cy="11" r="1.4" ${B}/><path d="M9.5 14.6c1.4 1.4 3.6 1.4 5 0" stroke="var(--ib,#252941)" stroke-width="1.7" stroke-linecap="round" fill="none"/>`,
+  box: `<path d="M3 8.5 12 4l9 4.5v9.2L12 22l-9-4.3z" ${A}/><path d="M3 8.5 12 13l9-4.5M12 13v9" stroke="var(--ib,#252941)" stroke-width="1.8" stroke-linejoin="round" fill="none"/><circle cx="12" cy="8.6" r="1.6" ${B}/>`,
   pin: `<path d="M12 2.5a7.5 7.5 0 0 1 7.5 7.5c0 5.3-7.5 11.5-7.5 11.5S4.5 15.3 4.5 10A7.5 7.5 0 0 1 12 2.5z" ${A}/><circle cx="12" cy="10" r="3" ${B}/>`,
 };
 export function icon(name, cls = '') {

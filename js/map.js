@@ -27,18 +27,24 @@ export async function createMap(el, { onSpot, onStudio }) {
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
   map.touchZoomRotate.disableRotation();
 
-  const markers = [];
+  const markers = []; let order = 0;
   for (const s of SPOTS) {
     const b = document.createElement('button');
-    b.className = 'pin'; b.type = 'button'; b.dataset.spot = s.id; b.setAttribute('aria-label', 'ลอยกระทงที่ ' + s.name);
+    b.className = 'pin'; b.type = 'button'; b.dataset.spot = s.id; b.style.setProperty('--d', (order++ * .12) + 's'); b.setAttribute('aria-label', 'ลอยกระทงที่ ' + s.name);
     b.innerHTML = `<span class="pin-glow"></span><span class="pin-icon">${s.studio ? '' : icon('krathong')}</span><span class="pin-label">${s.name}</span>`;
     if (s.studio) { b.classList.add('pin-studio'); b.querySelector('.pin-icon').append(charCanvas('gumdrop', { size: 40, mood: 'smile' })); }
     b.addEventListener('click', (e) => { e.stopPropagation(); map.easeTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 13.4), duration: 600 }); onSpot(s); });
     markers.push(new maplibregl.Marker({ element: b, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map));
   }
 
+  const fitAll = (dur = 700) => {
+    const b = new maplibregl.LngLatBounds(); for (const s of SPOTS) b.extend([s.lng, s.lat]);
+    map.fitBounds(b, { padding: { top: 130, bottom: 120, left: 70, right: 90 }, maxZoom: 14, duration: dur, pitch: 45, bearing: -12 });
+  };
+  map.once('load', () => fitAll(0));
   return {
-    map,
+    map, fitAll,
+    zoomIn: () => map.zoomIn({ duration: 300 }), zoomOut: () => map.zoomOut({ duration: 300 }),
     resize: () => map.resize(),
     flyHome: () => map.easeTo({ ...MAP_VIEW, duration: 700 }),
   };
