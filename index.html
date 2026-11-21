@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/maplibre-gl.css">
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
 </head>
 <body>
@@ -136,6 +136,18 @@
     </div>
   </div>
 
+  <div class="modal" id="modal-photo" hidden>
+    <div class="modal-card">
+      <div class="grip"></div>
+      <div class="sheet-top"><h2>ปั้นจากรูป</h2><button class="round" id="photo-x" aria-label="ปิด" data-icon="close"></button></div>
+      <div class="photo-prev" id="photo-prev"><canvas id="photo-cv"></canvas><div class="photo-msg" id="photo-msg" hidden></div></div>
+      <label class="ctl photo-ctl"><span>ตัดพื้นหลัง</span><input type="range" id="photo-th" min="8" max="170" step="1" value="40"></label>
+      <p class="photo-note">ส่วนที่มีขอบชมพูจะกลายเป็นก้อนดิน · รูปอยู่ในเครื่องคุณเท่านั้น ไม่ถูกอัปโหลด</p>
+      <div class="row"><button class="btn-surface" id="photo-again" data-icon="photo">เลือกรูปใหม่</button><button class="btn-primary" id="photo-use" data-icon="check">ใช้ทรงนี้</button></div>
+    </div>
+  </div>
+  <input type="file" id="photo-file" accept="image/*" hidden>
+
   <div class="modal" id="modal-ask" hidden>
     <div class="modal-card">
       <div class="grip"></div>
@@ -163,6 +175,6 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
-<script type="module" src="js/app.js?v=8"></script>
+<script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>

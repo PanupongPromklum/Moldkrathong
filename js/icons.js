@@ -57,6 +57,7 @@ const P = {
   box: `<path d="M3 8.5 12 4l9 4.5v9.2L12 22l-9-4.3z" ${A}/><path d="M3 8.5 12 13l9-4.5M12 13v9" stroke="var(--ib,#252941)" stroke-width="1.8" stroke-linejoin="round" fill="none"/><circle cx="12" cy="8.6" r="1.6" ${B}/>`,
   sound: `<path d="M3.5 9.5h3.2L11.5 5v14l-4.8-4.5H3.5z" ${A}/><path d="M15 8.8a4.5 4.5 0 0 1 0 6.4M17.8 6.2a8.2 8.2 0 0 1 0 11.6" stroke="var(--ib,#252941)" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
   mute: `<path d="M3.5 9.5h3.2L11.5 5v14l-4.8-4.5H3.5z" ${A}/><path d="m15 9.5 5 5m0-5-5 5" stroke="var(--ib,#252941)" stroke-width="2.2" stroke-linecap="round"/>`,
+  photo: `<rect x="2.5" y="6" width="19" height="14" rx="4" ${A}/><path d="M8 6l1.4-2.2A1.6 1.6 0 0 1 10.8 3h2.4a1.6 1.6 0 0 1 1.4.8L16 6" ${A}/><circle cx="12" cy="13" r="4" ${B}/><circle cx="12" cy="13" r="1.8" ${A}/><circle cx="18" cy="9.2" r="1" ${B}/>`,
   pin: `<path d="M12 2.5a7.5 7.5 0 0 1 7.5 7.5c0 5.3-7.5 11.5-7.5 11.5S4.5 15.3 4.5 10A7.5 7.5 0 0 1 12 2.5z" ${A}/><circle cx="12" cy="10" r="3" ${B}/>`,
 };
 export function icon(name, cls = '') {

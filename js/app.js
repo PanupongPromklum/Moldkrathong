@@ -1,13 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=8';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=8';
-import { createMap } from './map.js?v=8';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=8';
-import * as data from './data.js?v=8';
-import { createRiver } from './river.js?v=8';
-import { icon, iconEl } from './icons.js?v=8';
-import { paintBackdrop, createLife } from './scene.js?v=8';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=8';
+import { SPOTS, STUDIO, READY } from './config.js?v=9';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=9';
+import { createMap } from './map.js?v=9';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=9';
+import * as data from './data.js?v=9';
+import { createRiver } from './river.js?v=9';
+import { icon, iconEl } from './icons.js?v=9';
+import { paintBackdrop, createLife } from './scene.js?v=9';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=9';
+import * as photo from './photo.js?v=9';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -165,6 +166,7 @@ function renderTools() {
   const add = (b, fn) => { b.addEventListener('click', fn); box.append(b); };
   if (tab === 'template') {
     slS.hidden = true; slF.hidden = true; sym.hidden = true; $('#sl-base').hidden = false; $('#in-base').value = studio.baseSize;
+    add(tile('จากรูป', st.template === 'photo', iconEl('photo')), () => { $('#photo-file').value = ''; $('#photo-file').click(); });
     for (const t of mod.TEMPLATES) add(tile(t.th, st.template === t.id, tplIcon(t.id)), async () => {
       if (studio.dirtyWork && !(await askReset('เปลี่ยนเป็นทรง' + t.th + '?'))) return;
       studio.reset(t.id); renderTools();
@@ -233,6 +235,40 @@ $('#tg-sym').addEventListener('click', e => { const b = e.currentTarget, on = !b
 $('#btn-undo').addEventListener('click', () => studio?.undo());
 $('#del-btn').addEventListener('click', () => studio?.deleteSelected());
 
+/* ---------------- photo → shape ---------------- */
+let ph = null;   // { img, an, m, shape }
+function photoRefresh() {
+  if (!ph) return;
+  ph.m = photo.mask(ph.an, +$('#photo-th').value);
+  photo.drawPreview($('#photo-cv'), ph.img, ph.an, ph.m);
+  const msg = $('#photo-msg');
+  msg.hidden = !!ph.m; msg.textContent = 'ยังหาวัตถุไม่เจอ ลองเลื่อนแถบ "ตัดพื้นหลัง" หรือใช้รูปที่พื้นหลังเรียบกว่านี้';
+  $('#photo-use').disabled = !ph.m;
+}
+$('#photo-file').addEventListener('change', async (e) => {
+  const f = e.target.files?.[0]; if (!f) return;
+  $('#modal-photo').hidden = false; sfx('sheet');
+  $('#photo-msg').hidden = false; $('#photo-msg').textContent = 'กำลังดูรูป…'; $('#photo-use').disabled = true;
+  try {
+    const img = await photo.loadImage(f);
+    const an = photo.analyze(img);
+    ph = { img, an }; $('#photo-th').value = Math.round(an.auto);
+    requestAnimationFrame(photoRefresh);
+  } catch (err) { console.error(err); $('#photo-msg').textContent = 'เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'; }
+});
+let phT = 0;
+$('#photo-th').addEventListener('input', () => { cancelAnimationFrame(phT); phT = requestAnimationFrame(photoRefresh); });
+$('#photo-again').addEventListener('click', () => { $('#photo-file').value = ''; $('#photo-file').click(); });
+$('#photo-x').addEventListener('click', () => { $('#modal-photo').hidden = true; });
+$('#photo-use').addEventListener('click', async () => {
+  if (!ph?.m || !studio) return;
+  if (studio.dirtyWork && !(await ask('ใช้ทรงจากรูปนี้?', 'ที่ปั้นไว้จะหายทั้งหมด', 'ใช้เลย'))) return;
+  const shape = photo.toShape(ph.an, ph.m);
+  $('#modal-photo').hidden = true;
+  studio.reset('photo', shape); studio.frontView(); renderTools();
+  tip('ได้ทรงจากรูปแล้ว ปั้นหรือแต่งต่อได้เลย');
+});
+
 /* ---------------- confirm dialog ---------------- */
 function ask(title, msg, ok) {
   return new Promise((res) => {
@@ -255,7 +291,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=8');
+      mod = await import('./sculpt.js?v=9');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);

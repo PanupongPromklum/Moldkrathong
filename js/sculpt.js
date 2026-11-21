@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=8';
+import { CHARS } from './characters.js?v=9';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -177,13 +177,17 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       for (let i = 0; i < NV * 3; i++) P[i] += (tmp[i] - P[i]) * k;
     }
   }
-  function applyTemplate(id) {
+  let lastPhoto = null;
+  const _pc = new THREE.Color();
+  function applyTemplate(id, photo = null) {
+    if (id === 'photo') { photo = photo || lastPhoto; if (!photo) return; lastPhoto = photo; }
     const fromP = firstTpl ? null : P.slice(), fromC = firstTpl ? null : C.slice();
     st.template = id;
     const ch = CHARS[id];
     let prof = null, depthF = .85, depthB = .68, mean = 0;
     if (ch) { prof = ch.p; depthF = .85 * ch.req; depthB = depthF * .8; }
     if (id === 'heart') { prof = getHeartProfile(); depthF = .5; depthB = .45; }
+    if (id === 'photo') { prof = photo.profile; depthF = .62; depthB = .5; }
     if (prof) { for (const v of prof) mean += v; mean /= prof.length; }
     for (let i = 0; i < NV; i++) {
       let x = dirs[i * 3], y = dirs[i * 3 + 1], z = dirs[i * 3 + 2];
@@ -197,6 +201,8 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       } else { x *= .98; y *= .86; z *= .98; }
       P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z;
     }
+    // photo colours are read from the front view before the shape is fitted (same x/y space as the profile)
+    if (id === 'photo') for (let i = 0; i < NV; i++) { const c = photo.colorAt(P[i * 3], P[i * 3 + 1]); _pc.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace); C[i * 3] = _pc.r; C[i * 3 + 1] = _pc.g; C[i * 3 + 2] = _pc.b; }
     // fit on the base
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
     for (let i = 0; i < NV; i++) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); z0 = Math.min(z0, P[i * 3 + 2]); z1 = Math.max(z1, P[i * 3 + 2]); }
@@ -206,7 +212,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     smoothAll(BLOOMS[id] || id === 'heart' ? 6 : 2, .5);   // soft, rounded edges — no sharp tips
     // colours
     const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : BRAND;
-    gradientFill(stops);
+    if (id === 'photo') colDirty = true; else gradientFill(stops);
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
     undoStack.length = 0; redoStack.length = 0;
     if (fromP) { onAction('morph'); morph = { fromP, toP: P.slice(), fromC, toC: C.slice(), t0: performance.now() }; P.set(fromP); C.set(fromC); }
