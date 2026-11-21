@@ -54,7 +54,8 @@ export async function float({ spot, blob, nickname, wish, isPublic }) {
   const ext = blob.type === 'image/webp' ? 'webp' : 'png';
   const path = `${spot}/${(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36))}.${ext}`;
   await call(`${SUPABASE.url}/storage/v1/object/krathong/${path}`, { method: 'POST', headers: H({ 'Content-Type': blob.type, 'x-upsert': 'false' }), body: blob });
-  return rpc('float_krathong', { p_spot: spot, p_image: path, p_nickname: nickname, p_wish: wish, p_public: !!isPublic, p_device: deviceId });
+  const r = await rpc('float_krathong', { p_spot: spot, p_image: path, p_nickname: nickname, p_wish: wish, p_public: !!isPublic, p_device: deviceId });
+  return Array.isArray(r) ? r[0] : r;
 }
 
 export async function report(id) {
