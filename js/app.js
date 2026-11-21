@@ -8,7 +8,42 @@ const $ = (s) => document.querySelector(s);
 const show = (id) => { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); };
 
 /* ---------------- intro ---------------- */
-for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 56, mood: 'smile' }));
+for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 44, mood: 'smile' }));
+$('#intro-art').innerHTML = krathongArt();
+
+// Illustrated krathong on moonlit water (SVG, no 3D needed on the first screen).
+function krathongArt() {
+  const cx = 180, cy = 150, n = 12, petals = (R1, R2, lift, rot, fill, front) => {
+    let out = '';
+    for (let i = 0; i < n; i++) {
+      const a = (i + rot) / n * Math.PI * 2, sa = Math.sin(a);
+      if ((sa > 0) !== front) continue;
+      const w = Math.PI / n * .95, p = (ang, r, up = 0) => `${(cx + Math.cos(ang) * r).toFixed(1)},${(cy + Math.sin(ang) * r * .34 - up).toFixed(1)}`;
+      out += `<path d="M${p(a - w, R1)} Q${p(a, R2 * .82, lift * .4)} ${p(a, R2, lift)} Q${p(a, R2 * .82, lift * .4)} ${p(a + w, R1)} Z" fill="${fill}"/>`;
+    }
+    return out;
+  };
+  let water = '';
+  for (let i = 0; i < 9; i++) { const y = 178 + i * 9, w = 30 + i * 16; water += `<ellipse cx="${180 + (i % 2 ? 8 : -6)}" cy="${y}" rx="${w}" ry="1.6" fill="rgba(236,230,255,${(.35 - i * .03).toFixed(2)})"/>`; }
+  return `<svg viewBox="0 0 360 250" aria-label="กระทงลอยบนน้ำใต้แสงจันทร์">
+  <defs><linearGradient id="ia-p1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#8FC7A9"/><stop offset="1" stop-color="#C9E8D4"/></linearGradient>
+  <linearGradient id="ia-p2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#CBA5D1"/><stop offset="1" stop-color="#F3C6D8"/></linearGradient>
+  <radialGradient id="ia-g"><stop offset="0" stop-color="#FFE7B8"/><stop offset=".4" stop-color="rgba(255,190,110,.55)"/><stop offset="1" stop-color="rgba(255,160,90,0)"/></radialGradient></defs>
+  <g class="ia-water">${water}<ellipse cx="180" cy="176" rx="120" ry="12" fill="none" stroke="rgba(236,230,255,.25)" stroke-width="1.5"/><ellipse cx="180" cy="180" rx="150" ry="17" fill="none" stroke="rgba(236,230,255,.14)" stroke-width="1.5"/></g>
+  <g class="ia-k">
+    <ellipse cx="180" cy="166" rx="88" ry="17" fill="#ECE9F7"/><ellipse cx="180" cy="162" rx="84" ry="14" fill="#F6F4FC"/>
+    ${petals(68, 100, 22, 0, 'url(#ia-p1)', false)}${petals(46, 74, 36, .5, 'url(#ia-p2)', false)}
+    <ellipse cx="180" cy="148" rx="54" ry="17" fill="#E9D7EE"/>
+    ${petals(46, 74, 36, .5, 'url(#ia-p2)', true)}${petals(68, 100, 22, 0, 'url(#ia-p1)', true)}
+    <g stroke-linecap="round"><path d="M168 146 L163 92M180 146 V88M192 146 L197 92" stroke="#b5523f" stroke-width="2.6"/>
+    <path d="M164 104 L163 92M180 100 V88M196 104 L197 92" stroke="#7b6656" stroke-width="3.6"/></g>
+    <circle cx="163" cy="90" r="2.6" fill="#ff8a4a"/><circle cx="180" cy="86" r="2.6" fill="#ff8a4a"/><circle cx="197" cy="90" r="2.6" fill="#ff8a4a"/>
+    <rect x="207" y="122" width="13" height="26" rx="3" fill="#FFF4E0"/><circle cx="213.5" cy="112" r="16" fill="url(#ia-g)" class="ia-flame"/><path d="M213.5 104c3 4 3.6 7 0 10-3.6-3-3-6 0-10z" fill="#FFD27A"/>
+    <ellipse cx="164" cy="170" rx="5" ry="7" fill="#202429"/><ellipse cx="196" cy="170" rx="5" ry="7" fill="#202429"/><circle cx="166" cy="167.5" r="1.6" fill="#fff"/><circle cx="198" cy="167.5" r="1.6" fill="#fff"/>
+    <path d="M174 177q6 6 12 0" stroke="#202429" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="153" cy="176" rx="7" ry="4" fill="rgba(246,140,180,.55)"/><ellipse cx="207" cy="176" rx="7" ry="4" fill="rgba(246,140,180,.55)"/>
+  </g></svg>`;
+}
 let mapApi = null;
 $('#btn-start').addEventListener('click', async () => {
   $('#intro').classList.add('hide');
@@ -55,6 +90,15 @@ const SHAPE_TOOLS = [
   ['deflate', 'ยุบ', 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'],
   ['smooth', 'เกลี่ย', 'M3 14c3-4 5-4 8 0s5 4 8 0l2 1.5c-4 5-7 5-10 1s-5-4-7 0z'],
   ['crease', 'ร่อง', 'M4 5l8 14 8-14h-3l-5 9-5-9z'],
+  ['flatten', 'ทำแบน', 'M3 14h18v3H3zM6 8h12l2 4H4z'],
+  ['scrape', 'ขูดออก', 'M4 17h16v3H4zM14 3l5 5-7 7H7v-5z'],
+  ['slice', 'มีดตัด', 'M3 19 19 3l2 2L8 18l-5 2zM14 4l6 6-2 2-6-6z'],
+];
+const RESIZE = [
+  ['กว้างขึ้น', 1.1, 1, 'M2 12l4-4v3h12V8l4 4-4 4v-3H6v3z'],
+  ['แคบลง', .9, 1, 'M11 12 7 8v3H2v2h5v3zm2 0 4-4v3h5v2h-5v3z'],
+  ['สูงขึ้น', 1, 1.12, 'M12 2l4 4h-3v12h3l-4 4-4-4h3V6H8z'],
+  ['เตี้ยลง', 1, .88, 'M12 11 8 7h3V2h2v5h3zm0 2 4 4h-3v5h-2v-5H8z'],
 ];
 const ITEM_ICON = {
   incense3: 'M11 9h2v13h-2zM7 11h2v11H7zm8 0h2v11h-2zM12 3.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8zM8 6.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm8 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z',
@@ -83,6 +127,7 @@ function setHelper(t) {
   clearTimeout(setHelper.t); setHelper.t = setTimeout(() => el.classList.add('min'), 6000);
 }
 
+function tip(text) { $('#helper-tip').textContent = text; const el = $('#helper'); el.classList.remove('min', 'pop'); void el.offsetWidth; el.classList.add('pop'); clearTimeout(setHelper.t); setHelper.t = setTimeout(() => el.classList.add('min'), 5000); }
 function chip(label, active, iconEl) {
   const b = document.createElement('button'); b.className = 'chip' + (active ? ' active' : '');
   if (iconEl) b.append(iconEl); b.append(label); return b;
@@ -114,19 +159,24 @@ function renderTools() {
     sl.hidden = true;
     for (const t of mod.TEMPLATES) {
       const b = chip(t.th, st.template === t.id, tplIcon(t.id));
-      b.addEventListener('click', () => {
-        if (studio.state.canUndo && !b.classList.contains('armed')) { box.querySelectorAll('.armed').forEach(x => x.classList.remove('armed')); b.classList.add('armed'); b.lastChild.textContent = 'แตะอีกที'; return; }
+      b.addEventListener('click', async () => {
+        if (studio.dirtyWork && !(await ask('เปลี่ยนเป็นทรง' + t.th + '?', 'ที่ปั้นไว้จะหายทั้งหมดนะ', 'เปลี่ยนเลย'))) return;
         studio.reset(t.id); renderTools();
       });
       box.append(b);
     }
+    box.append(Object.assign(document.createElement('span'), { className: 'chip-sep' }));
+    for (const [th, sx, sy, d] of RESIZE) { const b = chip(th, false, svgIcon(d)); b.addEventListener('click', () => studio.scaleAll(sx, sy)); box.append(b); }
+    const rs = chip('เริ่มใหม่', false, svgIcon('M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0 1 0 12 6v3L7.5 5 12 1z'));
+    rs.addEventListener('click', async () => { if (await ask('เริ่มปั้นใหม่?', 'ที่ปั้นไว้จะหายทั้งหมดนะ', 'เริ่มใหม่')) { studio.reset(st.template); renderTools(); } });
+    box.append(rs);
     return;
   }
   const tools = tab === 'shape' ? SHAPE_TOOLS : tab === 'paint' ? PAINT_TOOLS : null;
   if (tools) {
     for (const [id, th, d] of tools) {
       const b = chip(th, st.sub === id, d ? svgIcon(d) : gradIcon());
-      b.addEventListener('click', () => { studio.setTool(tab, id); renderTools(); });
+      b.addEventListener('click', () => { studio.setTool(tab, id); renderTools(); if (id === 'slice') tip('ลากเส้นผ่านก้อน ส่วนที่เล็กกว่าจะถูกตัดออก'); });
       box.append(b);
     }
   } else if (tab === 'decor') {
@@ -136,9 +186,11 @@ function renderTools() {
       box.append(b);
     }
     const clr = chip('ล้างของแต่ง', false, svgIcon('M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z'));
-    clr.addEventListener('click', () => studio.clearDecor()); box.append(clr);
+    clr.addEventListener('click', async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); }); box.append(clr);
     slF.hidden = true;
   } else if (tab === 'incense') {
+    const clr2 = () => { const c = chip('ล้างทั้งหมด', false, svgIcon('M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z')); c.addEventListener('click', async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); }); return c; };
+    queueMicrotask(() => box.append(clr2()));
     for (const [k, th] of Object.entries(mod.INCENSE)) {
       const b = chip(th, st.sub === k, svgIcon(ITEM_ICON[k]));
       const ic = studio.itemColor(k); if (ic) b.firstChild.style.color = ic;
@@ -148,6 +200,7 @@ function renderTools() {
     slF.hidden = true;
   }
   if (tab === 'paint' && st.sub !== 'brush') slF.hidden = true;
+  if (tab === 'shape' && st.sub === 'slice') { slS.hidden = true; slF.hidden = true; }
   if (tab === 'paint' || tab === 'decor' || (tab === 'incense' && studio.itemColor(st.sub))) {
     if (tab === 'paint' && st.sub === 'gradient') return;
     const cur = tab === 'incense' ? studio.itemColor(st.sub) : paintColor;
@@ -166,7 +219,7 @@ function renderTools() {
 }
 
 function setTab(t) {
-  tab = t;
+  tab = t; studio.deselect?.();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   if (t !== 'template') studio.setTool(t, studio.state.tab === t ? studio.state.sub : subOf[t]);
   else studio.setTool('view');
@@ -178,6 +231,17 @@ $('#in-size').addEventListener('input', e => studio?.setSize(+e.target.value));
 $('#in-strength').addEventListener('input', e => studio?.setStrength(+e.target.value));
 $('#tg-sym').addEventListener('click', e => { const b = e.currentTarget, on = !b.classList.contains('on'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); studio?.setSymmetry(on); });
 $('#btn-undo').addEventListener('click', () => studio?.undo());
+$('#del-btn').addEventListener('click', () => studio?.deleteSelected());
+
+/* ---------------- confirm dialog ---------------- */
+function ask(title, msg, ok) {
+  return new Promise((res) => {
+    $('#ask-title').textContent = title; $('#ask-msg').textContent = msg; $('#ask-ok').textContent = ok;
+    const m = $('#modal-ask'); m.hidden = false;
+    const done = (v) => { m.hidden = true; $('#ask-ok').onclick = $('#ask-no').onclick = null; res(v); };
+    $('#ask-ok').onclick = () => done(true); $('#ask-no').onclick = () => done(false);
+  });
+}
 $('#btn-redo').addEventListener('click', () => studio?.redo());
 
 function syncButtons() { if (!studio) return; const s = studio.state; $('#btn-undo').disabled = !s.canUndo; $('#btn-redo').disabled = !s.canRedo; }
@@ -192,7 +256,7 @@ async function openStudio(spot) {
     $('#stage-loading').hidden = false;
     try {
       mod = await import('./sculpt.js');
-      studio = mod.createStudio($('#stage'), { onChange: syncButtons });
+      studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);
       $('#stage-loading').querySelector('span').textContent = 'เครื่องนี้เปิดห้องปั้น 3D ไม่ได้ ลองเปิดใน Safari หรือ Chrome นะ';
@@ -203,7 +267,7 @@ async function openStudio(spot) {
     setTab('template');
   } else { studio.resume(); setTab('template'); }
 }
-function closeStudio() { studio?.pause(); show('screen-map'); mapApi?.resize(); }
+function closeStudio() { studio?.deselect?.(); studio?.pause(); show('screen-map'); mapApi?.resize(); }
 $('#btn-back').addEventListener('click', () => history.back());
 window.addEventListener('popstate', () => { if ($('#screen-studio').classList.contains('active')) closeStudio(); $('#modal-done').hidden = true; });
 

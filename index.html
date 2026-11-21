@@ -47,6 +47,7 @@
 
     <div class="stage" id="stage">
       <div class="helper" id="helper"><canvas id="helper-ava"></canvas><div class="bubble"><b id="helper-name"></b><span id="helper-tip"></span></div></div>
+      <div class="del-pill" id="del-pill" hidden><span id="del-name"></span><button id="del-btn"><svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z"/></svg>ลบ</button></div>
       <div class="loading" id="stage-loading"><canvas id="loading-ava"></canvas><span>แอ๊คกำลังเตรียมดินปั้น…</span></div>
     </div>
 
@@ -81,11 +82,22 @@
     </div>
   </div>
 
+  <!-- ============ CONFIRM ============ -->
+  <div class="modal" id="modal-ask" hidden>
+    <div class="modal-card glass ask-card">
+      <h2 id="ask-title"></h2><p class="muted" id="ask-msg"></p>
+      <div class="row"><button class="btn-ghost" id="ask-no">ยกเลิก</button><button class="btn-primary" id="ask-ok">ตกลง</button></div>
+    </div>
+  </div>
+
   <!-- ============ INTRO ============ -->
   <div class="intro" id="intro">
-    <div class="intro-chars" id="intro-chars"></div>
+    <div class="intro-moon"></div>
     <h1 class="brand big">Mold<span>krathong</span></h1>
-    <p>ปั้นกระทงในแบบของคุณ<br>แล้วไปลอยด้วยกันในแม่น้ำจริง</p>
+    <p class="intro-sub">ลอยกระทงออนไลน์ 2569</p>
+    <div class="intro-art" id="intro-art"></div>
+    <div class="intro-chars" id="intro-chars"></div>
+    <p>ปั้นกระทงในแบบของคุณ แล้วไปลอยด้วยกัน</p>
     <button class="btn-primary lg" id="btn-start">เริ่มเลย</button>
     <small class="intro-by">ทำด้วยใจโดย Moldable Studio</small>
   </div>

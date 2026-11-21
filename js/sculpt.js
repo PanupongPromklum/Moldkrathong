@@ -85,10 +85,35 @@ function getHeartProfile() {
   }
   return (heartProfile = out);
 }
+// Flat open-bloom shapes (one closed surface): bottom disc → petal rows → centre.
+// rows: [tStart, tEnd, inner radius, petal reach, base height, rise, tip lift, phase, pointy]
+const BLOOMS = {
+  krathong: { n: 12, rows: [[.16, .40, 1.0, .42, 0, .16, .30, 0, true], [.48, .70, .74, .28, .16, .2, .32, .5, true]], valleys: [.74, .42], centre: [.30, .10], end: .78 },
+  lotus:    { n: 8,  rows: [[.12, .36, 1.0, .30, 0, .15, .34, 0, false], [.42, .60, .70, .22, .15, .25, .40, .5, false], [.66, .82, .45, .12, .32, .24, .36, 0, false]], valleys: [.70, .45, .22], centre: [.48, .06], end: .88 },
+};
+function bloom(id, ph, t) {
+  const B = BLOOMS[id], rows = B.rows;
+  const fr = (((ph / (Math.PI * 2)) * B.n) % 1 + 1) % 1;
+  const petal = (phase, pointy) => { const f = (fr + phase) % 1; return pointy ? Math.pow(1 - Math.abs(2 * f - 1), 1.6) : Math.pow(Math.sin(Math.PI * f), .7); };
+  const tipOf = (row) => { const p = petal(row[7], row[8]); return [row[2] + row[3] * p, row[4] + row[5] + row[6] * p]; };
+  if (t < rows[0][0]) { const u = t / rows[0][0]; return { ph, r: u * rows[0][2], h: 0 }; }
+  for (let k = 0; k < rows.length; k++) {
+    const R = rows[k];
+    if (t < R[1]) { const u = (t - R[0]) / (R[1] - R[0]), p = petal(R[7], R[8]); return { ph, r: R[2] + R[3] * p * u, h: R[4] + u * R[5] + R[6] * p * u * u }; }
+    const next = k + 1 < rows.length ? rows[k + 1][0] : B.end;
+    if (t < next) {
+      const u = (t - R[1]) / (next - R[1]), [tr, th] = tipOf(R);
+      const vr = B.valleys[k], vh = k + 1 < rows.length ? rows[k + 1][4] : B.centre[0];
+      return { ph, r: tr * (1 - u) + vr * u, h: th * (1 - u) + vh * u };
+    }
+  }
+  const u = (t - B.end) / (1 - B.end), vr = B.valleys[B.valleys.length - 1];
+  return { ph, r: vr * (1 - u), h: B.centre[0] + B.centre[1] * Math.sin(u * Math.PI / 2) };
+}
 const profR = (p, t) => { const N = p.length, u = ((t / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(u), f = u - i; return p[i % N] * (1 - f) + p[(i + 1) % N] * f; };
 
 /* ================================================================== */
-export function createStudio(host, { onChange = () => {} } = {}) {
+export function createStudio(host, { onChange = () => {}, onSelect = () => {} } = {}) {
   const canvas = document.createElement('canvas'); canvas.className = 'studio-canvas'; host.appendChild(canvas);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
@@ -156,19 +181,9 @@ export function createStudio(host, { onChange = () => {} } = {}) {
         const c = Math.hypot(x, y), r = mean + (profR(prof, Math.atan2(y, x)) - mean) * Math.pow(c, 2.4);
         const k = c > 1e-7 ? Math.pow(c, .93) / c : 0, zz = Math.sign(z) * Math.pow(Math.abs(z), .93);
         x = x * k * r; y = y * k * r; z = zz * (z > 0 ? depthF : depthB);
-      } else if (id === 'krathong') {
-        // classic krathong: flat bottom, scalloped petal skirt, inner shelf, lotus-bud cone
-        const ph = Math.atan2(z, x), t = Math.acos(Math.max(-1, Math.min(1, -y))) / Math.PI;
-        const pt = Math.pow(.5 + .5 * Math.cos(10 * ph), 4);
-        let rr, hh;
-        if (t < .12) { const u = t / .12; rr = u * .95; hh = u * .05; }
-        else if (t < .42) { const u = (t - .12) / .3; rr = .95 + .1 * Math.sin(u * Math.PI) + .26 * pt * u; hh = .05 + u * .42 + .16 * pt * u * u; }
-        else if (t < .52) { const u = (t - .42) / .1; rr = (.95 + .26 * pt) * (1 - u) + .5 * u; hh = .47 + .16 * pt * (1 - u) + .05 * u; }
-        else { const u = (t - .52) / .48; rr = .5 * Math.pow(1 - u, .85) * (1 + .12 * Math.pow(.5 + .5 * Math.cos(6 * ph + .5), 2)); hh = .52 + u * 1.0; }
-        x = Math.cos(ph) * rr; z = Math.sin(ph) * rr; y = hh;
-      } else if (id === 'lotus') {
-        const ph = Math.atan2(z, x), pet = Math.pow(.5 + .5 * Math.cos(8 * ph), 2.5), b = 1 + .2 * pet * (1 - Math.abs(y)) * (y > -.6 ? 1 : .3);
-        x *= b; z *= b; y = y > 0 ? y * (1 + .45 * y * y) : y * .72;
+      } else if (id === 'krathong' || id === 'lotus') {
+        const b = bloom(id, Math.atan2(z, x), Math.acos(Math.max(-1, Math.min(1, -y))) / Math.PI);
+        x = Math.cos(b.ph) * b.r; z = Math.sin(b.ph) * b.r; y = b.h;
       } else { x *= .98; y *= .86; z *= .98; }
       P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z;
     }
@@ -179,7 +194,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (let i = 0; i < NV; i++) { P[i * 3] = (P[i * 3] - cx) * s; P[i * 3 + 1] = (P[i * 3 + 1] - y0) * s + BASE_TOP - .06; P[i * 3 + 2] = (P[i * 3 + 2] - cz) * s; }
     // colours
-    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#A9D8C3', '#9BB0DE', '#CBA5D1', '#EB92B3'] : BRAND;
+    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : BRAND;
     gradientFill(stops);
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
     undoStack.length = 0; redoStack.length = 0;
@@ -308,6 +323,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     }
   }
   function clearDecorObjs() {
+    if (typeof selRing !== 'undefined' && selRing) { selRing.visible = false; selected = null; }
     for (const d of decor) { piece.remove(d.obj); d.obj.traverse(o => { if (o.material && o.material.map !== undefined && !o.isSprite && o.material !== stickMat && o.material !== coatMat && o.material !== emberMat) o.material.dispose?.(); }); }
     decor = []; flames = []; dirty = true;
   }
@@ -328,6 +344,12 @@ export function createStudio(host, { onChange = () => {} } = {}) {
       else if (sub === 'inflate' || sub === 'deflate') { const a = .012 * s * f * sign; P[i * 3] += N[i * 3] * a; P[i * 3 + 1] += N[i * 3 + 1] * a; P[i * 3 + 2] += N[i * 3 + 2] * a; }
       else if (sub === 'crease') { const a = .07 * s * f; P[i * 3] -= dx * a + nx * .004 * s * f; P[i * 3 + 1] -= dy * a + ny * .004 * s * f; P[i * 3 + 2] -= dz * a + nz * .004 * s * f; }
       else if (sub === 'smooth') list.push(i, f);
+      else if (sub === 'flatten' || sub === 'scrape') {
+        const dd = dx * nx + dy * ny + dz * nz;          // height above the touch plane
+        if (sub === 'scrape' && dd < -.02) continue;
+        const a = (sub === 'scrape' ? .5 : .3) * s * f * dd + (sub === 'scrape' ? .006 * s * f : 0);
+        P[i * 3] -= nx * a; P[i * 3 + 1] -= ny * a; P[i * 3 + 2] -= nz * a;
+      }
     }
     if (list.length) {
       const tmp = new Float32Array(list.length / 2 * 3);
@@ -382,6 +404,78 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     geoDirty = true;
   }
 
+  /* -------- knife: cut off the smaller side of a swiped line -------- */
+  const knife = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  knife.setAttribute('class', 'knife'); knife.innerHTML = '<line stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/>';
+  host.appendChild(knife);
+  const kLine = knife.firstChild;
+  function knifeShow(a, b) {
+    const r = host.getBoundingClientRect();
+    kLine.setAttribute('x1', a.x - r.left); kLine.setAttribute('y1', a.y - r.top); kLine.setAttribute('x2', b.x - r.left); kLine.setAttribute('y2', b.y - r.top);
+    knife.style.display = 'block';
+  }
+  function knifeCut(a, b) {
+    knife.style.display = 'none';
+    if (Math.hypot(a.x - b.x, a.y - b.y) < 24) return false;
+    setRay(a.x, a.y); const d1 = ray.ray.direction.clone();
+    setRay(b.x, b.y); const d2 = ray.ray.direction.clone();
+    const n = new THREE.Vector3().crossVectors(d1, d2).normalize(), o = camera.position;
+    let pos = 0, neg = 0;
+    for (let i = 0; i < NV; i++) (P[i * 3] - o.x) * n.x + (P[i * 3 + 1] - o.y) * n.y + (P[i * 3 + 2] - o.z) * n.z > 0 ? pos++ : neg++;
+    if (!pos || !neg) return false;
+    const side = pos < neg ? 1 : -1;
+    pushUndo();
+    for (let i = 0; i < NV; i++) {
+      const dd = (P[i * 3] - o.x) * n.x + (P[i * 3 + 1] - o.y) * n.y + (P[i * 3 + 2] - o.z) * n.z;
+      if (dd * side > 0) { P[i * 3] -= n.x * dd; P[i * 3 + 1] -= n.y * dd; P[i * 3 + 2] -= n.z * dd; }
+    }
+    // drop decorations that were on the removed side
+    decor = decor.filter(dc => {
+      const q = dc.obj.position, dd = (q.x - o.x) * n.x + (q.y - o.y) * n.y + (q.z - o.z) * n.z;
+      if (dd * side > .02) { piece.remove(dc.obj); return false; } return true;
+    });
+    rebuildFlames(); geoDirty = true; onChange(); return true;
+  }
+  function scaleAll(sx, sy) {
+    pushUndo();
+    for (let i = 0; i < NV; i++) { P[i * 3] *= sx; P[i * 3 + 2] *= sx; P[i * 3 + 1] = BASE_TOP - .06 + (P[i * 3 + 1] - BASE_TOP + .06) * sy; }
+    for (const d of decor) if (d.base) { d.base[0] *= sx; d.base[2] *= sx; }
+    geoDirty = true; onChange();
+  }
+
+  /* -------- select / delete decorations -------- */
+  let selected = null;
+  const selRing = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 32), new THREE.MeshBasicMaterial({ color: '#EB92B3', transparent: true, opacity: .95, depthTest: false, side: THREE.DoubleSide }));
+  selRing.renderOrder = 11; selRing.visible = false; scene.add(selRing);
+  void selRing;
+  function pickDecor(cx, cy) {
+    if (!decor.length) return null;
+    setRay(cx, cy); ray.camera = camera;
+    const h = ray.intersectObjects(decor.map(d => d.obj), true)[0];
+    if (h) { let o = h.object; while (o && !decor.some(d => d.obj === o)) o = o.parent; const d = decor.find(x => x.obj === o); if (d) return d; }
+    // finger-friendly: nearest item within ~30 px of the tap
+    let best = null, bd = 30;
+    for (const d of decor) { const q = screenOf(d); const dist = Math.hypot(q.x - cx, q.y - cy); if (dist < bd) { bd = dist; best = d; } }
+    return best;
+  }
+  const _sv = new THREE.Vector3();
+  function screenOf(d) {
+    const r = canvas.getBoundingClientRect();
+    _sv.set(0, d.inc && !['coin', 'garland'].includes(d.kind) ? .35 : 0, 0); d.obj.localToWorld(_sv); _sv.project(camera);
+    return { x: r.left + (_sv.x + 1) / 2 * r.width, y: r.top + (1 - _sv.y) / 2 * r.height };
+  }
+  function select(d) {
+    selected = d;
+    if (d) { selRing.position.copy(d.obj.position); selRing.quaternion.copy(camera.quaternion); selRing.scale.setScalar(.12 + .12 * d.scale); }
+    selRing.visible = !!d; dirty = true; onSelect(d ? (d.inc ? INCENSE[d.kind] : DECOR[d.kind].th) : null);
+  }
+  function deleteSelected() {
+    if (!selected) return;
+    pushUndo();
+    piece.remove(selected.obj); decor = decor.filter(d => d !== selected);
+    rebuildFlames(); select(null); onChange();
+  }
+
   /* -------- picking -------- */
   function setRay(cx, cy) {
     const r = canvas.getBoundingClientRect();
@@ -419,7 +513,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
   }
   function place(hit) {
     const kind = st.sub, isInc = kind in INCENSE;
-    const scale = isInc ? (kind.startsWith('incense') || kind === 'candle' ? .6 + st.size * .8 : .7 + st.size * 1.3) : DECOR[kind].size * (.5 + st.size * 1.4) * 2;
+    const scale = isInc ? (kind.startsWith('incense') || kind === 'candle' ? .42 + st.size * .6 : .7 + st.size * 1.3) : DECOR[kind].size * (.5 + st.size * 1.4) * 2;
     const color = isInc && st.itemColor[kind] ? st.itemColor[kind] : st.color;
     const put = (x, y, z) => {
       if (hit.obj === 'base') addDecor(kind, -1, scale, color, [x, BASE_TOP, z]);
@@ -446,19 +540,26 @@ export function createStudio(host, { onChange = () => {} } = {}) {
 
   /* -------- pointer input -------- */
   const pointers = new Map();
-  let mode = null, last = null, pinch0 = null, pending = null;
+  let mode = null, last = null, pinch0 = null, pending = null, kStart = null;
   canvas.style.touchAction = 'none';
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault(); canvas.setPointerCapture?.(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
       if (mode === 'stroke' || mode === 'grab') endStroke();
+      if (mode === 'knife') knife.style.display = 'none';
       mode = 'pinch'; const [a, b] = [...pointers.values()];
       pinch0 = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: view.fit, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
       return;
     }
     if (pointers.size > 2) return;
     last = { x: e.clientX, y: e.clientY };
+    if (st.tab === 'shape' && st.sub === 'slice') { mode = 'knife'; kStart = { ...last }; return; }
+    if (st.tab === 'decor' || st.tab === 'incense') {
+      const d = pickDecor(e.clientX, e.clientY);
+      if (d) { select(d === selected ? null : d); mode = 'tap'; return; }
+      if (selected) select(null);
+    }
     const hit = pick(e.clientX, e.clientY);
     mode = hit && canUse(hit) ? begin(hit) : 'orbit';
   });
@@ -475,10 +576,12 @@ export function createStudio(host, { onChange = () => {} } = {}) {
       view.yaw -= (e.clientX - last.x) * .009; view.pitch = Math.min(1.2, Math.max(-.15, view.pitch + (e.clientY - last.y) * .006));
       last = { x: e.clientX, y: e.clientY }; placeCamera(); return;
     }
+    if (mode === 'knife') { knifeShow(kStart, { x: e.clientX, y: e.clientY }); return; }
     if (mode === 'stroke' || mode === 'grab') pending = { x: e.clientX, y: e.clientY };
   });
   const up = (e) => {
     pointers.delete(e.pointerId);
+    if (mode === 'knife') { knifeCut(kStart, { x: e.clientX, y: e.clientY }); mode = null; }
     if (mode === 'stroke' || mode === 'grab') endStroke();
     if (pointers.size === 1 && mode === 'pinch') { const p = [...pointers.values()][0]; last = { x: p.x, y: p.y }; mode = 'orbit'; }
     else if (!pointers.size) mode = null;
@@ -524,6 +627,7 @@ export function createStudio(host, { onChange = () => {} } = {}) {
       for (const f of flames) { if (!f.userData.s0) f.userData.s0 = f.scale.clone(); f.scale.set(f.userData.s0.x * s, f.userData.s0.y * (2 - s), 1); }
       dirty = true;
     }
+    if (selRing.visible && selected) { selRing.position.copy(selected.obj.position); selRing.quaternion.copy(camera.quaternion); }
     if (dirty) { renderer.render(scene, camera); dirty = false; }
   }
   raf = requestAnimationFrame(frame);
@@ -554,7 +658,10 @@ export function createStudio(host, { onChange = () => {} } = {}) {
     itemColor(k) { return st.itemColor[k]; },
     setSize(v) { st.size = v; }, setStrength(v) { st.strength = v; }, setSymmetry(b) { st.sym = b; },
     get state() { return { ...st, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0, decorCount: decor.length }; },
-    undo, redo, reset: applyTemplate,
+    undo() { select(null); undo(); }, redo() { select(null); redo(); }, reset: applyTemplate,
+    scaleAll, deleteSelected, deselect() { select(null); },
+    _decorScreen() { return decor.map(screenOf); },
+    get dirtyWork() { return undoStack.length > 0; },
     clearDecor() { if (!decor.length) return; pushUndo(); clearDecorObjs(); onChange(); },
     frontView() { view.yaw = 0; view.pitch = .22; resize(); },
     snapshot, resize,
