@@ -1,7 +1,7 @@
 // Map screen: ELEMNT Cartographer style (MapLibre + PMTiles), night-tinted, with spot pins.
-import { MAP_STYLE, SPOTS, STUDIO, MAP_VIEW, MAP_BOUNDS } from './config.js?v=15';
-import { charCanvas } from './characters.js?v=15';
-import { icon } from './icons.js?v=15';
+import { MAP_STYLE, SPOTS, STUDIO, MAP_VIEW, MAP_BOUNDS } from './config.js?v=16';
+import { charCanvas } from './characters.js?v=16';
+import { icon } from './icons.js?v=16';
 
 const KRATHONG_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="kg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9BB0DE"/><stop offset=".55" stop-color="#CBA5D1"/><stop offset="1" stop-color="#EB92B3"/></linearGradient></defs>
 <ellipse cx="24" cy="34" rx="18" ry="6.5" fill="#ECE9F7"/><path d="M24 10c6 5 9 11 8 18-2.6 2-5.3 3-8 3s-5.4-1-8-3c-1-7 2-13 8-18z" fill="url(#kg)"/>
@@ -39,6 +39,16 @@ export async function createMap(el, { onSpot, onStudio }) {
     markers.push(new maplibregl.Marker({ element: b, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map));
   }
 
+  // labels that would overlap a more important one hide until you zoom in
+  const declutter = () => {
+    const shown = [];
+    for (const m of markers) {
+      const el = m.getElement(), lab = el.querySelector('.pin-label'); lab.classList.remove('quiet');
+      const r = lab.getBoundingClientRect(), hit = shown.some(o => r.left < o.right + 4 && r.right > o.left - 4 && r.top < o.bottom + 2 && r.bottom > o.top - 2);
+      if (hit) lab.classList.add('quiet'); else shown.push(r);
+    }
+  };
+  map.on('moveend', declutter); map.once('idle', declutter);
   const fitAll = (dur = 700) => {
     const b = new maplibregl.LngLatBounds(); for (const s of SPOTS) b.extend([s.lng, s.lat]);
     map.fitBounds(b, { padding: { top: 130, bottom: 120, left: 70, right: 90 }, maxZoom: 14, duration: dur, pitch: 45, bearing: -12 });

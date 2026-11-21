@@ -346,3 +346,6 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
   .thumbbar .btn-primary { padding: 0 14px 0 10px; }
   .shuffle-btn { padding: 0 14px 0 10px; }
 }
+
+.pin-label { transition: opacity .25s; }
+.pin-label.quiet { opacity: 0; pointer-events: none; }

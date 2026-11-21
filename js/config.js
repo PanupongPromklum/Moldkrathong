@@ -13,6 +13,13 @@ export const SPOTS = [
   { id: 'moldable', name: 'บ่อ Moldable', sub: 'Moldable Studio · บ่อลอยกระทงของทีม', lng: 100.546946, lat: 13.788627, studio: true },
   { id: 'rama8',  name: 'สะพานพระราม 8', sub: 'สวนสันติชัยปราการ · แม่น้ำเจ้าพระยา', lng: 100.4948, lat: 13.7716 },
   { id: 'rotfai', name: 'สวนรถไฟ',       sub: 'สวนวชิรเบญจทัศ · บึงในสวน',           lng: 100.5528, lat: 13.8102 },
+  { id: 'watarun',    name: 'วัดอรุณ',        sub: 'วัดอรุณราชวราราม · ริมเจ้าพระยา',     lng: 100.4888, lat: 13.7437, char: 'flower', color: 'var(--warm)' },
+  { id: 'mahakan',    name: 'ป้อมมหากาฬ',     sub: 'ริมคลองรอบกรุง · มองเห็นภูเขาทอง',     lng: 100.5047, lat: 13.7563, char: 'diamond', color: 'var(--peri)' },
+  { id: 'songwat',    name: 'ถนนทรงวาด',      sub: 'ย่านเยาวราช · ริมเจ้าพระยา',           lng: 100.5098, lat: 13.7385, char: 'cloud', color: 'var(--pink)' },
+  { id: 'iconsiam',   name: 'ไอคอนสยาม',      sub: 'ลานริมแม่น้ำ · ริมเจ้าพระยา',           lng: 100.5106, lat: 13.7267, char: 'splat', color: 'var(--teal)' },
+  { id: 'asiatique',  name: 'เอเชียทีค',       sub: 'ชิงช้าสวรรค์ · ริมเจ้าพระยา',          lng: 100.5028, lat: 13.7046, char: 'gumdrop', color: 'var(--lilac)' },
+  { id: 'lumphini',   name: 'สวนลุมพินี',      sub: 'บึงใหญ่กลางเมือง · ปทุมวัน',            lng: 100.5418, lat: 13.7309, char: 'cloud', color: 'var(--teal)' },
+  { id: 'benjakitti', name: 'สวนเบญจกิติ',     sub: 'บึงและสะพานลอยฟ้า · คลองเตย',          lng: 100.5583, lat: 13.7297, char: 'flower', color: 'var(--pink)' },
 ];
 
 export const STUDIO = {

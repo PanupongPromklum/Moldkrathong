@@ -1,6 +1,6 @@
 // 2.5D moonlit scene shared by the intro, the river room and the save card.
 // paintBackdrop() draws the still layers once; createLife() animates stars, sky lanterns, moonlight and fireflies.
-import { CHAR_KEYS, charCanvas } from './characters.js?v=15';
+import { CHAR_KEYS, charCanvas } from './characters.js?v=16';
 
 const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 export const MORPH = { peri: '#9BB0DE', lilac: '#CBA5D1', pink: '#EB92B3', teal: '#7FA9B1', primary: '#5A68B5', ink: '#252941' };
@@ -83,6 +83,72 @@ function skyline(g, W, horizon, spot, s, r, hero = 1) {
     g.fillRect(bx, horizon - bh, bw, bh);
     g.fillStyle = 'rgba(255,214,150,.85)'; for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) g.fillRect(bx + (10 + i * 20) * s, horizon - bh + (10 + j * 16) * s, 10 * s, 8 * s);
     CHAR_KEYS.forEach((k, i) => { const c = charCanvas(k, { size: 64, mood: 'smile' }); const sz = 26 * s; g.drawImage(c, W * .48 + i * 30 * s, horizon - sz * .82 - (i % 2) * 3 * s, sz, sz); });
+  } else if (spot === 'watarun') {
+    // floodlit prangs across the river
+    const px = W * .6, prang = (x, h, w) => {
+      const gr = g.createLinearGradient(0, horizon - h, 0, horizon); gr.addColorStop(0, '#FFE7B8'); gr.addColorStop(.7, '#E9B77E'); gr.addColorStop(1, '#6b4f5e');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x - w, horizon);
+      for (let i = 0; i <= 5; i++) { const k = i / 5, y = horizon - h * (.08 + k * .7), ww = w * (1 - k * .78); g.lineTo(x - ww, y); g.lineTo(x - ww * .86, y - h * .03); }
+      g.lineTo(x - w * .06, horizon - h * .92); g.lineTo(x, horizon - h); g.lineTo(x + w * .06, horizon - h * .92);
+      for (let i = 5; i >= 0; i--) { const k = i / 5, y = horizon - h * (.08 + k * .7), ww = w * (1 - k * .78); g.lineTo(x + ww * .86, y - h * .03); g.lineTo(x + ww, y); }
+      g.lineTo(x + w, horizon); g.fill();
+    };
+    g.fillStyle = near; g.fillRect(0, horizon - 7 * s, W, 7 * s);
+    const glow = g.createRadialGradient(px, horizon - 50 * s, 4, px, horizon - 50 * s, 120 * s); glow.addColorStop(0, 'rgba(255,214,150,.28)'); glow.addColorStop(1, 'rgba(255,214,150,0)');
+    g.fillStyle = glow; g.fillRect(px - 130 * s, horizon - 170 * s, 260 * s, 170 * s);
+    prang(px - 58 * s, 46 * s, 9 * s); prang(px + 58 * s, 46 * s, 9 * s); prang(px - 30 * s, 62 * s, 11 * s); prang(px + 30 * s, 62 * s, 11 * s); prang(px, 118 * s, 20 * s);
+  } else if (spot === 'mahakan') {
+    // fort wall + octagonal tower, Golden Mount behind
+    const mx = W * .72;
+    g.fillStyle = '#262a5c'; g.beginPath(); g.ellipse(mx, horizon, 70 * s, 34 * s, 0, Math.PI, 0); g.fill();
+    const gold = g.createLinearGradient(0, horizon - 96 * s, 0, horizon - 30 * s); gold.addColorStop(0, '#FFE7A3'); gold.addColorStop(1, '#D9A24E');
+    g.fillStyle = gold; g.beginPath(); g.moveTo(mx - 16 * s, horizon - 30 * s); g.quadraticCurveTo(mx - 15 * s, horizon - 52 * s, mx - 4 * s, horizon - 60 * s); g.lineTo(mx - 1.2 * s, horizon - 96 * s); g.lineTo(mx + 1.2 * s, horizon - 96 * s); g.lineTo(mx + 4 * s, horizon - 60 * s); g.quadraticCurveTo(mx + 15 * s, horizon - 52 * s, mx + 16 * s, horizon - 30 * s); g.fill();
+    g.fillStyle = near; g.fillRect(0, horizon - 18 * s, W * .55, 18 * s);
+    for (let x = 0; x < W * .55; x += 9 * s) g.fillRect(x, horizon - 23 * s, 5 * s, 5 * s);
+    const fx = W * .28; g.fillRect(fx - 16 * s, horizon - 40 * s, 32 * s, 40 * s);
+    for (let x = fx - 16 * s; x < fx + 16 * s; x += 8 * s) g.fillRect(x, horizon - 45 * s, 5 * s, 5 * s);
+    g.beginPath(); g.moveTo(fx - 12 * s, horizon - 45 * s); g.lineTo(fx, horizon - 66 * s); g.lineTo(fx + 12 * s, horizon - 45 * s); g.fill();
+    g.fillStyle = 'rgba(255,214,150,.85)'; for (let x = 6 * s; x < W * .55; x += 22 * s) g.fillRect(x, horizon - 11 * s, 2 * s, 3 * s);
+  } else if (spot === 'songwat') {
+    // old shophouses with a string of red lanterns
+    g.fillStyle = near; let x = -4 * s;
+    while (x < W) { const w = (26 + r() * 18) * s, h = (30 + r() * 22) * s; g.fillRect(x, horizon - h, w - 2 * s, h);
+      g.fillStyle = 'rgba(255,214,150,.75)'; for (let i = 0; i < 2; i++) g.fillRect(x + (5 + i * (w - 16 * s) / 1.2) , horizon - h + 8 * s, 5 * s, 7 * s);
+      g.fillStyle = near; x += w; }
+    g.strokeStyle = 'rgba(255,214,150,.5)'; g.lineWidth = 1 * s;
+    for (const [y0, sag] of [[horizon - 58 * s, 12 * s], [horizon - 44 * s, 9 * s]]) {
+      g.beginPath(); g.moveTo(0, y0); g.quadraticCurveTo(W / 2, y0 + sag * 2, W, y0); g.stroke();
+      for (let i = 1; i < 12; i++) { const t = i / 12, ly = (1 - t) * (1 - t) * y0 + 2 * t * (1 - t) * (y0 + sag * 2) + t * t * y0;
+        g.fillStyle = 'rgba(232,82,82,.9)'; g.beginPath(); g.ellipse(t * W, ly + 5 * s, 4 * s, 5 * s, 0, 0, 7); g.fill();
+        g.fillStyle = 'rgba(255,214,150,.9)'; g.fillRect(t * W - 1.5 * s, ly + 9.5 * s, 3 * s, 1.5 * s); }
+    }
+  } else if (spot === 'iconsiam') {
+    // two glass towers and a glowing riverside podium
+    const tower = (x, w, h, col) => { g.fillStyle = near; g.fillRect(x, horizon - h, w, h); g.fillStyle = col; for (let y = horizon - h + 6 * s; y < horizon - 6 * s; y += 7 * s) g.fillRect(x + 3 * s, y, w - 6 * s, 1.4 * s); };
+    tower(W * .64, 24 * s, 150 * s, 'rgba(155,176,222,.55)'); tower(W * .74, 20 * s, 112 * s, 'rgba(127,169,177,.55)');
+    g.fillStyle = '#23275a'; g.beginPath(); g.moveTo(W * .3, horizon); g.lineTo(W * .32, horizon - 26 * s); g.quadraticCurveTo(W * .6, horizon - 40 * s, W * .9, horizon - 26 * s); g.lineTo(W * .92, horizon); g.fill();
+    g.strokeStyle = 'rgba(169,216,195,.7)'; g.lineWidth = 1.3 * s;
+    for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(W * .33, horizon - (20 - i * 6) * s); g.quadraticCurveTo(W * .6, horizon - (33 - i * 6) * s, W * .89, horizon - (20 - i * 6) * s); g.stroke(); }
+  } else if (spot === 'asiatique') {
+    // riverside warehouses and the big wheel
+    g.fillStyle = near;
+    for (let x = 0; x < W; x += 44 * s) { g.beginPath(); g.moveTo(x, horizon); g.lineTo(x, horizon - 16 * s); g.lineTo(x + 20 * s, horizon - 24 * s); g.lineTo(x + 40 * s, horizon - 16 * s); g.lineTo(x + 40 * s, horizon); g.fill(); }
+    const cx = W * .3, cy = horizon - 62 * s, R = 50 * s;
+    g.strokeStyle = 'rgba(203,165,209,.8)'; g.lineWidth = 1.6 * s; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke();
+    g.lineWidth = .8 * s; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); g.stroke();
+      g.fillStyle = ['#EB92B3', '#FFE7A3', '#A9D8C3', '#9BB0DE'][i % 4]; g.beginPath(); g.arc(cx + Math.cos(a) * R, cy + Math.sin(a) * R + 3 * s, 3 * s, 0, 7); g.fill(); }
+    g.strokeStyle = near; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(cx - 26 * s, horizon); g.lineTo(cx, cy); g.lineTo(cx + 26 * s, horizon); g.stroke();
+  } else if (spot === 'lumphini' || spot === 'benjakitti') {
+    // city towers behind the park trees
+    for (let i = 0; i < 7; i++) { const x = W * (.08 + i * .14) + (r() - .5) * 20 * s, w = (18 + r() * 14) * s, h = (60 + r() * 80) * s;
+      g.fillStyle = '#262a5c'; g.fillRect(x, horizon - h, w, h); g.fillStyle = 'rgba(255,214,150,.55)';
+      for (let k = 0; k < 10; k++) g.fillRect(x + r() * (w - 3 * s), horizon - h + r() * h * .9, 2 * s, 2 * s); }
+    g.fillStyle = near;
+    for (let x = -20 * s; x < W + 30 * s; x += (24 + r() * 20) * s) { const rr = (13 + r() * 14) * s; g.beginPath(); g.arc(x, horizon - rr * .4, rr, 0, 7); g.fill(); }
+    if (spot === 'benjakitti') {   // the elevated skywalk loops over the trees
+      g.strokeStyle = 'rgba(169,216,195,.85)'; g.lineWidth = 2.4 * s; g.beginPath(); g.moveTo(-10, horizon - 34 * s); g.bezierCurveTo(W * .3, horizon - 52 * s, W * .6, horizon - 24 * s, W + 10, horizon - 40 * s); g.stroke();
+      g.lineWidth = 1 * s; for (let x = W * .06; x < W; x += W * .12) { g.beginPath(); g.moveTo(x, horizon - 4 * s); g.lineTo(x, horizon - 30 * s); g.stroke(); }
+    }
   } else {
     g.fillStyle = near; g.fillRect(0, horizon - 6 * s, W, 6 * s);
   }
