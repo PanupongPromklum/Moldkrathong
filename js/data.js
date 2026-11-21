@@ -1,5 +1,5 @@
 // Data layer: Supabase (REST, no SDK) when configured, otherwise a local stand-in for testing.
-import { SUPABASE } from './config.js';
+import { SUPABASE } from './config.js?v=8';
 
 export const remote = !!(SUPABASE.url && SUPABASE.key) && !/[?&]local=1/.test(location.search);
 export const deviceId = (() => {

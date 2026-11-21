@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js';
+import { CHARS } from './characters.js?v=8';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -113,7 +113,7 @@ function bloom(id, ph, t) {
 const profR = (p, t) => { const N = p.length, u = ((t / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(u), f = u - i; return p[i % N] * (1 - f) + p[(i + 1) % N] * f; };
 
 /* ================================================================== */
-export function createStudio(host, { onChange = () => {}, onSelect = () => {} } = {}) {
+export function createStudio(host, { onChange = () => {}, onSelect = () => {}, onAction = () => {} } = {}) {
   const canvas = document.createElement('canvas'); canvas.className = 'studio-canvas'; host.appendChild(canvas);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
@@ -135,9 +135,6 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
   const baseGeo = new THREE.LatheGeometry([[0, 0], [.9, 0], [.99, .018], [1.03, .055], [1.01, .095], [.95, BASE_TOP], [0, BASE_TOP]].map(p => new THREE.Vector2(p[0], p[1])), 72);
   const baseMat = glow(new THREE.MeshStandardMaterial({ color: '#ECE9F7', roughness: .62 }), 'mk-base');
   const base = new THREE.Mesh(baseGeo, baseMat); piece.add(base);
-  // little pink nub on the base marks the front
-  const nub = new THREE.Mesh(new THREE.SphereGeometry(.07, 16, 10).scale(1, .55, .8), glow(new THREE.MeshStandardMaterial({ color: '#EB92B3', roughness: .5 }), 'mk-nub'));
-  nub.position.set(0, BASE_TOP * .55, 1.0); base.add(nub);
   let baseScale = 1;
 
   // clay
@@ -212,7 +209,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
     gradientFill(stops);
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
     undoStack.length = 0; redoStack.length = 0;
-    if (fromP) { morph = { fromP, toP: P.slice(), fromC, toC: C.slice(), t0: performance.now() }; P.set(fromP); C.set(fromC); }
+    if (fromP) { onAction('morph'); morph = { fromP, toP: P.slice(), fromC, toC: C.slice(), t0: performance.now() }; P.set(fromP); C.set(fromC); }
     firstTpl = false;
     geoDirty = true; onChange();
   }
@@ -451,7 +448,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
       const q = dc.obj.position, dd = (q.x - o.x) * n.x + (q.y - o.y) * n.y + (q.z - o.z) * n.z;
       if (dd * side > .02) { piece.remove(dc.obj); return false; } return true;
     });
-    rebuildFlames(); geoDirty = true; onChange(); return true;
+    rebuildFlames(); geoDirty = true; onChange(); onAction('cut'); return true;
   }
   function bbox() { let a = [1e9, 1e9, 1e9], b = [-1e9, -1e9, -1e9]; for (let i = 0; i < NV; i++) for (let k = 0; k < 3; k++) { const v = P[i * 3 + k]; if (v < a[k]) a[k] = v; if (v > b[k]) b[k] = v; } return { w: Math.max(b[0] - a[0], b[2] - a[2]), h: b[1] - a[1] }; }
   function scaleAll(sx, sy) {
@@ -493,7 +490,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
     if (!selected) return;
     pushUndo();
     piece.remove(selected.obj); decor = decor.filter(d => d !== selected);
-    rebuildFlames(); select(null); onChange();
+    rebuildFlames(); select(null); onChange(); onAction('delete');
   }
 
   /* -------- picking -------- */
@@ -539,7 +536,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
       if (hit.obj === 'base') addDecor(kind, -1, scale, color, [x, BASE_TOP, z], true);
       else addDecor(kind, nearestVertex(x, y, z), scale, color, null, true);
     };
-    const p = hit.point; put(p.x, p.y, p.z);
+    const p = hit.point; put(p.x, p.y, p.z); onAction('place');
     const pair = isInc || DECOR[kind]?.pair;
     if (st.sym && pair && Math.abs(p.x) > .07) put(-p.x, p.y, p.z);
     rebuildFlames();
@@ -583,7 +580,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
       mode = 'press';
       press = { x: sx, y: sy, fired: false, timer: setTimeout(() => {
         press.fired = true; const d = pickDecor(sx, sy);
-        if (d) { select(d); navigator.vibrate?.(12); mode = 'tap'; } else mode = 'orbit';
+        if (d) { select(d); navigator.vibrate?.(12); onAction('select'); mode = 'tap'; } else mode = 'orbit';
       }, 450) };
       return;
     }
@@ -678,9 +675,9 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {} } 
 
   /* -------- snapshot (transparent PNG cropped to the piece) -------- */
   function snapshot(max = 640) {
-    cursor.visible = false; nub.visible = false; const sr = selRing.visible; selRing.visible = false;
+    cursor.visible = false; const sr = selRing.visible; selRing.visible = false;
     renderer.render(scene, camera);
-    nub.visible = true; selRing.visible = sr; dirty = true;
+    selRing.visible = sr; dirty = true;
     const src = renderer.domElement, W = src.width, H = src.height;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0);

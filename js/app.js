@@ -1,12 +1,13 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js';
-import { createMap } from './map.js';
-import { makeCard, makeStory, BACKDROPS } from './card.js';
-import * as data from './data.js';
-import { createRiver } from './river.js';
-import { icon, iconEl } from './icons.js';
-import { paintBackdrop, createLife } from './scene.js';
+import { SPOTS, STUDIO, READY } from './config.js?v=8';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=8';
+import { createMap } from './map.js?v=8';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=8';
+import * as data from './data.js?v=8';
+import { createRiver } from './river.js?v=8';
+import { icon, iconEl } from './icons.js?v=8';
+import { paintBackdrop, createLife } from './scene.js?v=8';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=8';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -17,6 +18,12 @@ const show = (id) => {
 // put a duotone icon in front of every element that asks for one
 function decorate(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (!el.querySelector(':scope > .ico')) el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); }); }
 decorate();
+// sound: unlock on the first touch, soft tick on every button, toggles anywhere
+document.addEventListener('pointerdown', unlock, { once: true, capture: true });
+document.addEventListener('click', (e) => { if (e.target.closest('button, a.btn-primary, a.btn-cream')) sfx('tap'); }, true);
+function paintSoundBtns() { document.querySelectorAll('[data-sound]').forEach(b => { b.innerHTML = icon(isOn() ? 'sound' : 'mute'); b.classList.toggle('off', !isOn()); }); }
+document.querySelectorAll('[data-sound]').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); setOn(!isOn()); unlock(); paintSoundBtns(); }));
+paintSoundBtns();
 for (const k of CHAR_KEYS) {
   const c = charCanvas(k, { size: 44, mood: 'smile' }); $('#intro-chars').append(c);
   c.addEventListener('pointerdown', () => c.animate([{ transform: 'translateY(0) scale(1)' }, { transform: 'translateY(2px) scale(1.15,.8)' }, { transform: 'translateY(-18px) scale(.9,1.1)' }, { transform: 'translateY(0) scale(1.06,.94)' }, { transform: 'none' }], { duration: 620, easing: 'ease-out' }));
@@ -26,10 +33,10 @@ for (const k of CHAR_KEYS) {
   const cv = $('#intro-scene'), g = cv.getContext('2d'); let life, W, H, dpr, bg, raf;
   const size = () => {
     dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr;
-    const horizon = Math.round(H * .64); bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
-    const b = bg.getContext('2d'); b.setTransform(dpr, 0, 0, dpr, 0, 0); const moon = { x: W * .8, y: horizon - 190, r: 26 };
-    paintBackdrop(b, W, H, { horizon, spot: 'rama8', moon, hero: 1.9 });
-    life = createLife(W, H, horizon, { lanterns: 9, moon });
+    const horizon = Math.round(H * .58), s = Math.min(W, 520) / 390; bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
+    const b = bg.getContext('2d'); b.setTransform(dpr, 0, 0, dpr, 0, 0); const moon = { x: W / 2 + Math.min(W, 520) * .32, y: horizon - 170 * s, r: 26 };
+    paintBackdrop(b, W, H, { horizon, spot: 'rama8', moon, hero: 1.7, s });
+    life = createLife(W, H, horizon, { lanterns: 9, moon, s });
   };
   size(); addEventListener('resize', size);
   let last = 0;
@@ -83,7 +90,7 @@ function openSheet(title, sub, avaKey, bodyHTML, color) {
   $('#sheet-title').textContent = title; $('#sheet-sub').textContent = sub;
   $('#sheet').style.setProperty('--spot', color || 'var(--pink)');
   drawChar($('#sheet-ava'), avaKey, { size: 52, mood: 'smile' });
-  $('#sheet-body').innerHTML = bodyHTML; decorate($('#sheet-body')); $('#sheet').hidden = false;
+  $('#sheet-body').innerHTML = bodyHTML; decorate($('#sheet-body')); $('#sheet').hidden = false; sfx('sheet');
 }
 function openSpot(spot) {
   currentSpot = spot;
@@ -206,6 +213,7 @@ function renderTools() {
 }
 
 function setTab(t) {
+  if (t !== tab) sfx('tab');
   tab = t; studio.deselect?.();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
   if (t !== 'template') studio.setTool(t, studio.state.tab === t ? studio.state.sub : subOf[t]);
@@ -247,8 +255,8 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js');
-      studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
+      mod = await import('./sculpt.js?v=8');
+      studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);
       $('#stage-loading').querySelector('span').textContent = 'เครื่องนี้เปิดห้องปั้น 3D ไม่ได้ ลองเปิดใน Safari หรือ Chrome นะ';
@@ -283,7 +291,7 @@ $('#btn-done').addEventListener('click', async () => {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   lastShot = studio.snapshot(900);
   bg = currentSpot.id;
-  $('#modal-done').hidden = false;
+  $('#modal-done').hidden = false; sfx('chime');
   await refreshCard();
   setHelper('done');
 });
@@ -328,7 +336,7 @@ function openWish(shot, spot, mineId = null) {
   $('#wish-img').src = shot.toDataURL ? shot.toDataURL('image/png') : shot.src;
   $('#wish-where').textContent = 'ลอยที่ ' + spot.name;
   $('#wish-go').disabled = false; $('#wish-go').querySelector('span').textContent = 'ลอยเลย';
-  $('#modal-wish').hidden = false;
+  $('#modal-wish').hidden = false; sfx('sheet');
 }
 $('#wish-text').addEventListener('input', e => { $('#wish-count').textContent = e.target.value.length + '/60'; });
 $('#wish-pub').addEventListener('click', e => { const b = e.currentTarget, on = !b.classList.contains('on'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.querySelector('span').textContent = on ? 'ให้คนอื่นเห็นคำอธิษฐาน' : 'อธิษฐานในใจ (คนอื่นไม่เห็น)'; });
@@ -343,6 +351,7 @@ $('#wish-go').addEventListener('click', async () => {
     myLast = { row, shot: wishShot, spot: wishSpot, nickname: $('#wish-name').value.trim(), wish: $('#wish-pub').classList.contains('on') ? $('#wish-text').value.trim() : '' };
     $('#modal-wish').hidden = true; $('#wish-text').value = ''; $('#wish-count').textContent = '0/60';
     if ($('#screen-studio').classList.contains('active')) { studio?.pause(); history.replaceState({ s: 'river' }, ''); } else history.pushState({ s: 'river' }, '');
+    sfx('splash'); setTimeout(() => sfx('chime'), 900);
     await openRiver(wishSpot, { own: row, ownSrc: $('#wish-img').src, noPush: true });
   } catch (err) {
     console.error(err); go.disabled = false; go.querySelector('span').textContent = 'ลองอีกครั้ง';
@@ -368,7 +377,7 @@ function openFree(spot) {
   $('#mine-wrap').hidden = !mine.length;
   $('#mine-grid').innerHTML = mine.map((m, i) => `<button data-mine="${m.id}"><img src="${m.img}" alt="กระทงของฉัน ${i + 1}"><span>ใบที่ ${mine.length - i}</span><i class="x" data-drop="${m.id}" aria-label="ลบ">×</i></button>`).join('');
   $('#free-grid').innerHTML = READY.map(r => `<button data-k="${r.id}"><img src="assets/free/${r.id}.png" alt="${r.name}"><span>${r.name}</span></button>`).join('');
-  $('#modal-free').hidden = false;
+  $('#modal-free').hidden = false; sfx('sheet');
 }
 const pickFrom = (e) => {
   const drop = e.target.closest('[data-drop]');

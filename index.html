@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/maplibre-gl.css">
-<link rel="stylesheet" href="css/style.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=8">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
 </head>
 <body>
@@ -23,8 +23,8 @@
     <header class="map-top">
       <span class="brand">Mold<span>krathong</span></span>
       <span class="map-hint">แตะหมุดเพื่อเลือกที่ลอย</span>
+      <button class="sound-btn" data-sound aria-label="เปิด/ปิดเสียง"></button>
     </header>
-    <a class="elemnt-badge" href="https://elemnt.earth" target="_blank" rel="noopener">Powered by ELEMNT</a>
     <div class="map-tools">
       <button id="mz-in" data-icon="plus" aria-label="ขยายแผนที่"></button>
       <button id="mz-out" data-icon="minus" aria-label="ย่อแผนที่"></button>
@@ -57,8 +57,8 @@
       <div class="seg">
         <button id="btn-undo" aria-label="ย้อนกลับ" data-icon="undo" disabled></button>
         <button id="btn-redo" aria-label="ทำซ้ำ" data-icon="redo" disabled></button>
-        <button id="btn-front" aria-label="หมุนไปด้านหน้า" data-icon="front"></button>
       </div>
+      <button class="front-btn" id="btn-front" data-icon="front">ด้านหน้า</button>
       <button class="btn-primary" id="btn-done" data-icon="check">เสร็จแล้ว</button>
     </div>
     <div class="tools" id="tools">
@@ -149,7 +149,8 @@
   <!-- ============ INTRO ============ -->
   <div class="intro" id="intro">
     <canvas class="intro-scene" id="intro-scene"></canvas>
-    <div class="intro-top"><span class="brand">Mold<span>krathong</span></span><span class="tag">ลอยกระทง 2569</span></div>
+    <div class="intro-top"><span class="brand">Mold<span>krathong</span></span><span class="intro-top-r"><span class="tag">ลอยกระทง 2569</span><button class="sound-btn" data-sound aria-label="เปิด/ปิดเสียง"></button></span></div>
+    <img class="intro-krathong" src="assets/free/pinklotus.png" alt="กระทงบัวชมพูลอยบนน้ำ">
     <h1 class="intro-title">ปั้นกระทง<br>ในแบบของคุณ</h1>
     <p class="intro-sub">แล้วไปลอยกับทุกคนในแม่น้ำจริง</p>
     <div class="intro-cta">
@@ -162,6 +163,6 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
-<script type="module" src="js/app.js?v=7"></script>
+<script type="module" src="js/app.js?v=8"></script>
 </body>
 </html>

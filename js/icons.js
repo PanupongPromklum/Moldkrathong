@@ -53,8 +53,10 @@ const P = {
   plus: `<path d="M12 4.5v15M4.5 12h15" stroke="var(--ia,#CBA5D1)" stroke-width="3.2" stroke-linecap="round"/>`,
   minus: `<path d="M4.5 12h15" stroke="var(--ia,#CBA5D1)" stroke-width="3.2" stroke-linecap="round"/>`,
   focus: `<path d="M3.5 8.5v-2a3 3 0 0 1 3-3h2M15.5 3.5h2a3 3 0 0 1 3 3v2M20.5 15.5v2a3 3 0 0 1-3 3h-2M8.5 20.5h-2a3 3 0 0 1-3-3v-2" stroke="var(--ia,#CBA5D1)" stroke-width="2.6" stroke-linecap="round" fill="none"/><circle cx="12" cy="12" r="3.4" ${A}/>`,
-  front: `<path d="M12 3c5 0 8.5 3.4 8.5 8.2 0 5-3.8 9.3-8.5 9.3s-8.5-4.3-8.5-9.3C3.5 6.4 7 3 12 3z" ${A}/><circle cx="9.3" cy="11" r="1.4" ${B}/><circle cx="14.7" cy="11" r="1.4" ${B}/><path d="M9.5 14.6c1.4 1.4 3.6 1.4 5 0" stroke="var(--ib,#252941)" stroke-width="1.7" stroke-linecap="round" fill="none"/>`,
+  front: `<path d="M8 3.5h11a1.5 1.5 0 0 1 1.5 1.5v11L16 20.5H5a1.5 1.5 0 0 1-1.5-1.5V8z" fill="var(--ib,#252941)" opacity=".45"/><rect x="3.5" y="8" width="12.5" height="12.5" rx="2.5" ${A}/><circle cx="7.6" cy="13.2" r="1.2" fill="var(--ib,#252941)"/><circle cx="11.9" cy="13.2" r="1.2" fill="var(--ib,#252941)"/><path d="M7.6 16.2c1.2 1 3.1 1 4.3 0" stroke="var(--ib,#252941)" stroke-width="1.5" stroke-linecap="round" fill="none"/>`,
   box: `<path d="M3 8.5 12 4l9 4.5v9.2L12 22l-9-4.3z" ${A}/><path d="M3 8.5 12 13l9-4.5M12 13v9" stroke="var(--ib,#252941)" stroke-width="1.8" stroke-linejoin="round" fill="none"/><circle cx="12" cy="8.6" r="1.6" ${B}/>`,
+  sound: `<path d="M3.5 9.5h3.2L11.5 5v14l-4.8-4.5H3.5z" ${A}/><path d="M15 8.8a4.5 4.5 0 0 1 0 6.4M17.8 6.2a8.2 8.2 0 0 1 0 11.6" stroke="var(--ib,#252941)" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
+  mute: `<path d="M3.5 9.5h3.2L11.5 5v14l-4.8-4.5H3.5z" ${A}/><path d="m15 9.5 5 5m0-5-5 5" stroke="var(--ib,#252941)" stroke-width="2.2" stroke-linecap="round"/>`,
   pin: `<path d="M12 2.5a7.5 7.5 0 0 1 7.5 7.5c0 5.3-7.5 11.5-7.5 11.5S4.5 15.3 4.5 10A7.5 7.5 0 0 1 12 2.5z" ${A}/><circle cx="12" cy="10" r="3" ${B}/>`,
 };
 export function icon(name, cls = '') {

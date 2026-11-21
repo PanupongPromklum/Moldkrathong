@@ -1,6 +1,6 @@
 // 2.5D moonlit scene shared by the intro, the river room and the save card.
 // paintBackdrop() draws the still layers once; createLife() animates stars, sky lanterns, moonlight and fireflies.
-import { CHAR_KEYS, charCanvas } from './characters.js';
+import { CHAR_KEYS, charCanvas } from './characters.js?v=8';
 
 const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 export const MORPH = { peri: '#9BB0DE', lilac: '#CBA5D1', pink: '#EB92B3', teal: '#7FA9B1', primary: '#5A68B5', ink: '#252941' };
@@ -63,7 +63,7 @@ function skyline(g, W, horizon, spot, s, r, hero = 1) {
   g.fillStyle = 'rgba(255,214,150,.6)';
   for (let i = 0; i < 26; i++) g.fillRect(r() * W, horizon - r() * 26 * s, 1.4 * s, 1.4 * s);
   if (spot === 'rama8') {
-    const px = W * (hero > 1 ? .62 : .3), top = horizon - 120 * s * hero, deck = horizon - 18 * s * Math.min(hero, 1.4);
+    const px = hero > 1 ? W / 2 + Math.min(W, 520) * (W > 720 ? .62 : .14) : W * .3, top = horizon - 120 * s * hero, deck = horizon - 18 * s * Math.min(hero, 1.4);
     g.fillStyle = near; g.fillRect(0, deck, W, 4 * s);
     const pw = hero;
     g.beginPath(); g.moveTo(px - 7 * s * pw, horizon); g.lineTo(px - 2.5 * s * pw, top); g.lineTo(px + 2.5 * s * pw, top); g.lineTo(px + 7 * s * pw, horizon); g.fill();

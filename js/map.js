@@ -1,7 +1,7 @@
 // Map screen: ELEMNT Cartographer style (MapLibre + PMTiles), night-tinted, with spot pins.
-import { MAP_STYLE, SPOTS, STUDIO, MAP_VIEW, MAP_BOUNDS } from './config.js';
-import { charCanvas } from './characters.js';
-import { icon } from './icons.js';
+import { MAP_STYLE, SPOTS, STUDIO, MAP_VIEW, MAP_BOUNDS } from './config.js?v=8';
+import { charCanvas } from './characters.js?v=8';
+import { icon } from './icons.js?v=8';
 
 const KRATHONG_SVG = `<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="kg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9BB0DE"/><stop offset=".55" stop-color="#CBA5D1"/><stop offset="1" stop-color="#EB92B3"/></linearGradient></defs>
 <ellipse cx="24" cy="34" rx="18" ry="6.5" fill="#ECE9F7"/><path d="M24 10c6 5 9 11 8 18-2.6 2-5.3 3-8 3s-5.4-1-8-3c-1-7 2-13 8-18z" fill="url(#kg)"/>
@@ -24,7 +24,9 @@ export async function createMap(el, { onSpot, onStudio }) {
     attributionControl: false, dragRotate: true, pitchWithRotate: false, fadeDuration: 0,
     maxPitch: 60, renderWorldCopies: false,
   });
-  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+  // credits live behind a small (i) — OpenStreetMap's licence requires them to stay reachable
+  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Map style © <a href="https://elemnt.earth" target="_blank" rel="noopener">ELEMNT</a>' }), 'bottom-left');
+  map.once('idle', () => el.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'));
   map.touchZoomRotate.disableRotation();
 
   const markers = []; let order = 0;
