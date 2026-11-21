@@ -1,5 +1,5 @@
 // 2D drawings of the Moldable blobs (canvas) — light enough for helper bubbles and pins.
-import { CHARDATA } from './chardata.js?v=12';
+import { CHARDATA } from './chardata.js?v=13';
 
 export const CHARS = CHARDATA;
 export const CHAR_KEYS = ['gumdrop', 'diamond', 'splat', 'flower', 'cloud'];

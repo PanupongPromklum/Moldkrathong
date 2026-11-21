@@ -1,14 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=12';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=12';
-import { createMap } from './map.js?v=12';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=12';
-import * as data from './data.js?v=12';
-import { createRiver } from './river.js?v=12';
-import { icon, iconEl } from './icons.js?v=12';
-import { paintBackdrop, createLife } from './scene.js?v=12';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=12';
-import * as photo from './photo.js?v=12';
+import { SPOTS, STUDIO, READY } from './config.js?v=13';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=13';
+import { createMap } from './map.js?v=13';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=13';
+import * as data from './data.js?v=13';
+import { createRiver } from './river.js?v=13';
+import { icon, iconEl } from './icons.js?v=13';
+import { paintBackdrop, createLife } from './scene.js?v=13';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=13';
+import * as photo from './photo.js?v=13';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -418,7 +418,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=12');
+      mod = await import('./sculpt.js?v=13');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);

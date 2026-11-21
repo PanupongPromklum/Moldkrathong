@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=12';
+import { CHARS } from './characters.js?v=13';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles

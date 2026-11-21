@@ -1,5 +1,5 @@
 // River room — 2.5D moonlit scene on one 2D canvas. Krathongs are images, so many float smoothly.
-import { paintBackdrop, createLife } from './scene.js?v=12';
+import { paintBackdrop, createLife } from './scene.js?v=13';
 const MAX_ON_WATER = 40;
 
 export function createRiver(host, { onTap = () => {} } = {}) {
@@ -30,18 +30,40 @@ export function createRiver(host, { onTap = () => {} } = {}) {
     imgCache.set(src, im); return im;
   }
   let seed = 1; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  // Depth lanes: every krathong sits in one lane; a lane keeps its boats spaced so they never pile up,
+  // and all lanes drift at the same pace so the spacing (and the stagger between lanes) holds.
+  const LANES = [.1, .25, .4, .55, .7, .85], SPAN = 1.3, X0 = -.15, SPEED = .012;
+  const widthAt = (z) => (.1 + .24 * z) * Math.min(W || 390, 640);
+  const capOf = (li) => Math.max(1, Math.floor(SPAN * (W || 390) / (widthAt(LANES[li]) * 1.2)));
+  function place(it, frontFirst) {
+    let best = -1, bs = -1e9;
+    for (let li = LANES.length - 1; li >= 0; li--) {
+      const n = items.filter(o => o !== it && o.lane === li).length, free = (capOf(li) - n) / capOf(li);
+      const sc = free + (frontFirst ? li * .02 : -Math.abs(li - 2.5) * .01);
+      if (sc > bs) { bs = sc; best = li; }
+    }
+    it.lane = best; it.z = LANES[best];
+    // drop it into the widest gap of that lane
+    const xs = items.filter(o => o !== it && o.lane === best).map(o => ((o.x - X0) % SPAN + SPAN) % SPAN).sort((a, b) => a - b);
+    if (!xs.length) { it.x = X0 + (best % 2 ? .35 : .65) * SPAN; return; }
+    let gx = 0, gw = -1;
+    for (let i = 0; i < xs.length; i++) { const a = xs[i], b = i + 1 < xs.length ? xs[i + 1] : xs[0] + SPAN; if (b - a > gw) { gw = b - a; gx = a + (b - a) / 2; } }
+    it.x = X0 + (gx % SPAN);
+  }
   function makeItem(row, src, own) {
-    return { row, img: loadImg(src), z: own ? .74 : .1 + rnd() * .75, x: rnd(), speed: .006 + rnd() * .01, ph: rnd() * 6.28, own, launch: own ? 0 : 1, box: null };
+    return { row, img: loadImg(src), z: .5, lane: -1, x: .5, ph: rnd() * 6.28, own, launch: own ? 0 : 1, box: null, y: 0 };
   }
   function setItems(rows, srcOf) {
     const keep = new Map(items.map(i => [i.row.id, i]));
-    items = rows.slice(0, MAX_ON_WATER).map(r => keep.get(r.id) || makeItem(r, srcOf(r), false));
+    const next = rows.slice(0, MAX_ON_WATER).map(r => keep.get(r.id) || makeItem(r, srcOf(r), false));
+    items = next.filter(i => i.lane >= 0);
+    for (const it of next) if (it.lane < 0) { place(it, false); items.push(it); }
   }
   function addItems(rows, srcOf) {
-    for (const r of rows) if (!items.some(i => i.row.id === r.id)) items.push(makeItem(r, srcOf(r), false));
+    for (const r of rows) if (!items.some(i => i.row.id === r.id)) { const it = makeItem(r, srcOf(r), false); place(it, false); items.push(it); }
     while (items.length > MAX_ON_WATER) { const k = items.findIndex(i => !i.own); items.splice(k < 0 ? 0 : k, 1); }
   }
-  function addOwn(row, src) { const it = makeItem(row, src, true); it.x = .5; items.push(it); return it; }
+  function addOwn(row, src) { const it = makeItem(row, src, true); place(it, true); items.push(it); return it; }
 
   /* ---------- draw ---------- */
   function frame(t) {
@@ -52,19 +74,21 @@ export function createRiver(host, { onTap = () => {} } = {}) {
     g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(bg, 0, 0);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     life?.draw(g, t, dt);
-    items.sort((a, b) => a.z - b.z);
-    const base = Math.min(W, H * .62);
     for (const it of items) {
       if (it.launch < 1) it.launch = Math.min(1, it.launch + dt * .45);
-      it.x += it.speed * dt * (.4 + it.z);
-      if (it.x > 1.15) it.x = -.15;
-      const im = it.img; if (!im.complete || !im.naturalWidth) continue;
-      const s = (.16 + .4 * it.z) * base / Math.max(im.naturalWidth, im.naturalHeight) * (it.own ? 1.08 : 1);
-      const w = im.naturalWidth * s, h = im.naturalHeight * s;
+      it.x += SPEED * dt; if (it.x > X0 + SPAN) it.x -= SPAN;
       const ease = 1 - Math.pow(1 - it.launch, 3);
-      const wy = horizon + (H - horizon) * (.14 + .7 * it.z) + (1 - ease) * H * .5;
-      const bob = Math.sin(t * .0016 + it.ph) * 3 * (.5 + it.z), rot = Math.sin(t * .0011 + it.ph) * .03;
-      const x = it.x * W, y = wy + bob;
+      it.y = horizon + (H - horizon) * (.14 + .7 * it.z) + (1 - ease) * H * .5;
+    }
+    // back to front by where the boat touches the water, so nearer boats always cover farther ones
+    items.sort((a, b) => a.y - b.y);
+    for (const it of items) {
+      const im = it.img; if (!im.complete || !im.naturalWidth) continue;
+      // size by width (the boat), not height — tall incense must not shrink a near boat below a far one
+      let w = widthAt(it.z) * (it.own ? 1.08 : 1), h = w * im.naturalHeight / im.naturalWidth;
+      if (h > w * 1.5) { h = w * 1.5; w = h * im.naturalWidth / im.naturalHeight; }
+      const bob = Math.sin(t * .0016 + it.ph) * 2 * (.5 + it.z), rot = Math.sin(t * .0011 + it.ph) * .03;
+      const x = it.x * W + Math.sin(t * .0005 + it.ph) * 4, y = it.y + bob;
       // reflection + ripple
       g.save(); g.globalAlpha = .16; g.translate(x, y + h * .02); g.scale(1, -.5); g.drawImage(im, -w / 2, -h, w, h); g.restore();
       g.strokeStyle = 'rgba(236,230,255,.22)'; g.lineWidth = 1;
