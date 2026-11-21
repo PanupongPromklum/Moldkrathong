@@ -1,5 +1,5 @@
 // River room — 2.5D moonlit scene on one 2D canvas. Krathongs are images, so many float smoothly.
-import { paintBackdrop, createLife } from './scene.js?v=13';
+import { paintBackdrop, createLife } from './scene.js?v=14';
 const MAX_ON_WATER = 40;
 
 export function createRiver(host, { onTap = () => {} } = {}) {

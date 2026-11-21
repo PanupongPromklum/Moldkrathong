@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=13';
+import { CHARS } from './characters.js?v=14';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -79,7 +79,9 @@ const flameTex = () => texCache.flame || (texCache.flame = tex(g => { const r = 
 
 /* ---------------- templates ---------------- */
 export const TEMPLATES = [
-  { id: 'krathong', th: 'กระทง' }, { id: 'round', th: 'ก้อนกลม' }, { id: 'lotus', th: 'ดอกบัว' }, { id: 'heart', th: 'หัวใจ' },
+  { id: 'plate', th: 'จานดิน' }, { id: 'krathong', th: 'กระทง' }, { id: 'lotus', th: 'ดอกบัว' }, { id: 'pointy', th: 'แฉก' },
+  { id: 'tier', th: 'สามชั้น' }, { id: 'flower8', th: 'ดอกไม้' }, { id: 'heartplate', th: 'หัวใจ' }, { id: 'star', th: 'ดาว' },
+  { id: 'boat', th: 'เรือ' }, { id: 'leaf', th: 'ใบบัว' }, { id: 'shell', th: 'หอย' },
   { id: 'gumdrop', th: 'มิน' }, { id: 'diamond', th: 'แอ๊ค' }, { id: 'splat', th: 'ใหม่' }, { id: 'flower', th: 'ไผ่' }, { id: 'cloud', th: 'ฟ้า' },
 ];
 
@@ -107,6 +109,8 @@ function getHeartProfile() {
 // rows: [tStart, tEnd, inner radius, petal reach, base height, rise, tip lift, phase, pointy]
 const BLOOMS = {
   krathong: { n: 10, rows: [[.16, .40, 1.0, .30, 0, .14, .22, 0, false], [.48, .70, .72, .2, .14, .18, .24, .5, false]], valleys: [.72, .42], centre: [.28, .08], end: .78 },
+  pointy:   { n: 8,  rows: [[.16, .42, 1.0, .36, 0, .12, .26, 0, true], [.50, .72, .66, .24, .14, .18, .3, .5, true]], valleys: [.66, .38], centre: [.3, .06], end: .8 },
+  tier:     { n: 9,  rows: [[.12, .34, 1.0, .28, 0, .12, .22, 0, true], [.40, .58, .74, .22, .14, .2, .26, .5, true], [.64, .80, .48, .14, .3, .22, .28, 0, true]], valleys: [.74, .48, .24], centre: [.5, .05], end: .86 },
   lotus:    { n: 8,  rows: [[.12, .36, 1.0, .24, 0, .15, .26, 0, false], [.42, .60, .70, .18, .15, .22, .3, .5, false], [.66, .82, .45, .1, .3, .2, .26, 0, false]], valleys: [.70, .45, .22], centre: [.44, .06], end: .88 },
 };
 function bloom(id, ph, t) {
@@ -127,6 +131,40 @@ function bloom(id, ph, t) {
   }
   const u = (t - B.end) / (1 - B.end), vr = B.valleys[B.valleys.length - 1];
   return { ph, r: vr * (1 - u), h: B.centre[0] + B.centre[1] * Math.sin(u * Math.PI / 2) };
+}
+// Flat trays and plates: a lathe profile [radius fraction, height] swept around an outline r(angle).
+// Low and wide on purpose — easier to pull clay up than to dig it out.
+const SLAB = [[0, 0], [.9, 0], [.98, .035], [1, .13], [.97, .22], [.88, .26], [0, .26]];
+const TRAY = [[0, 0], [.88, 0], [.97, .04], [1, .16], [.97, .28], [.9, .3], [.83, .23], [.68, .18], [0, .17]];
+const THIN = [[0, 0], [.92, 0], [.99, .03], [1, .08], [.96, .12], [0, .11]];
+const near = (a, b) => { let d = (a - b) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
+export const FLATS = {
+  plate:      { prof: SLAB, out: () => 1, colors: ['#E6DDF3', '#F1DCEA', '#F8E8F0'] },
+  flower8:    { prof: TRAY, out: ph => .8 + .2 * Math.pow(Math.abs(Math.cos(4 * ph)), .6), colors: ['#9BB0DE', '#CBA5D1', '#F6C2D6'] },
+  heartplate: { prof: TRAY, out: ph => profR(getHeartProfile(), -ph) * 1.15, colors: ['#E77FA8', '#F3A9C4', '#FFD6E5'] },
+  star:       { prof: TRAY, out: ph => .6 + .4 * Math.pow(.5 + .5 * Math.cos(5 * (ph - Math.PI / 2)), 1.4), colors: ['#E9A23B', '#F2C98B', '#FFF1C9'] },
+  boat:       { prof: TRAY, out: ph => 1 / Math.sqrt(Math.cos(ph) ** 2 + (Math.sin(ph) / .52) ** 2), lift: ph => .22 * Math.cos(ph) ** 2, colors: ['#7FA9B1', '#A9D8C3', '#E3F1EA'] },
+  leaf:       { prof: THIN, out: ph => 1 - .55 * Math.exp(-(((near(ph, Math.PI * .25)) / .16) ** 2)), colors: ['#5E9E7A', '#8FC7A9', '#C8EBD3'] },
+  shell:      { prof: TRAY, out: ph => (ph = near(ph, -Math.PI / 2), .78 + .22 * Math.cos(ph / 2) * (.85 + .15 * Math.abs(Math.cos(7 * ph)))), lift: ph => .1 * Math.max(0, -Math.sin(ph)), colors: ['#F2C98B', '#F6B8CF', '#FBE3EC'] },
+};
+const flatPath = {};
+function flat(id, ph, t) {
+  const F = FLATS[id], pts = F.prof;
+  if (!flatPath[id]) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], (pts[i][1] - pts[i - 1][1]) * 1.6)); flatPath[id] = L.map(v => v / L[L.length - 1]); }
+  const L = flatPath[id]; let k = 1; while (k < L.length - 1 && L[k] < t) k++;
+  const u = Math.min(1, Math.max(0, (t - L[k - 1]) / Math.max(1e-6, L[k] - L[k - 1])));
+  const sr = pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * u, h = pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * u;
+  const rimness = Math.min(1, Math.max(0, (sr - .6) / .35)) * Math.min(1, h / .1);
+  return { ph, r: sr * F.out(ph), h: h + (F.lift ? F.lift(ph) * rimness : 0) };
+}
+export function templateColors(id) {
+  return FLATS[id] ? FLATS[id].colors : id === 'krathong' || id === 'pointy' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : id === 'tier' ? ['#8FC7A9', '#CFE8D5', '#F3C6D8', '#FFE7A3'] : BRAND;
+}
+/** top-view outline (radius by angle) for the template tiles */
+export function outlineOf(id, ph) {
+  if (FLATS[id]) return FLATS[id].out(ph);
+  if (BLOOMS[id]) return bloom(id, ph, BLOOMS[id].rows[0][1]).r;
+  return 1;
 }
 const profR = (p, t) => { const N = p.length, u = ((t / (Math.PI * 2)) % 1 + 1) % 1 * N, i = Math.floor(u), f = u - i; return p[i % N] * (1 - f) + p[(i + 1) % N] * f; };
 
@@ -194,7 +232,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   cursor.renderOrder = 10; cursor.visible = false; scene.add(cursor);
 
   /* -------- state -------- */
-  const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'krathong', itemColor: { ...ITEM_COLOR } };
+  const st = { tab: 'shape', sub: 'grab', color: '#EB92B3', size: .45, strength: .55, sym: true, template: 'plate', itemColor: { ...ITEM_COLOR } };
   const radius = () => .05 + Math.pow(st.size, 1.6) * .6;   // finer steps at small sizes
   let decor = [];           // { kind, vi, obj, scale, color, base?: [x,y,z] }
   let flames = [];
@@ -228,7 +266,10 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
         const c = Math.hypot(x, y), r = mean + (profR(prof, Math.atan2(y, x)) - mean) * Math.pow(c, 2.4);
         const k = c > 1e-7 ? Math.pow(c, .93) / c : 0, zz = Math.sign(z) * Math.pow(Math.abs(z), .93);
         x = x * k * r; y = y * k * r; z = zz * (z > 0 ? depthF : depthB);
-      } else if (id === 'krathong' || id === 'lotus') {
+      } else if (FLATS[id]) {
+        const b = flat(id, Math.atan2(z, x), Math.acos(Math.max(-1, Math.min(1, -y))) / Math.PI);
+        x = Math.cos(b.ph) * b.r; z = Math.sin(b.ph) * b.r; y = b.h;
+      } else if (BLOOMS[id]) {
         const b = bloom(id, Math.atan2(z, x), Math.acos(Math.max(-1, Math.min(1, -y))) / Math.PI);
         x = Math.cos(b.ph) * b.r; z = Math.sin(b.ph) * b.r; y = b.h;
       } else { x *= .98; y *= .86; z *= .98; }
@@ -247,9 +288,9 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     const s = Math.min(1.75 / (x1 - x0), 1.75 / (z1 - z0), 1.7 / (y1 - y0));
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     for (let i = 0; i < NV; i++) { P[i * 3] = (P[i * 3] - cx) * s; P[i * 3 + 1] = (P[i * 3 + 1] - y0) * s + BASE_TOP - .06; P[i * 3 + 2] = (P[i * 3 + 2] - cz) * s; }
-    smoothAll(BLOOMS[id] || id === 'heart' ? 6 : 2, .5);   // soft, rounded edges — no sharp tips
+    smoothAll(BLOOMS[id] || id === 'heart' ? 6 : FLATS[id] ? 4 : 2, .5);   // soft, rounded edges — no sharp tips
     // colours
-    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : id === 'krathong' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : BRAND;
+    const stops = ch ? [ch.colors.bottom, ch.colors.mid, ch.colors.top] : templateColors(id);
     if (id === 'photo') {
       colDirty = true;
       texK = photo.uvScale.u / s;                                        // uv units per world unit (x)
@@ -409,7 +450,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     for (let i = 0; i < NV; i++) { const x = P[i * 3], y = P[i * 3 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; R = Math.max(R, Math.hypot(x, P[i * 3 + 2])); }
     return { x0, x1, y0, y1, W: x1 - x0, H: y1 - y0, R };
   }
-  const BLOOM_IDS = ['krathong', 'lotus'];
+  const BLOOM_IDS = [...Object.keys(BLOOMS), ...Object.keys(FLATS)];   // low, wide shapes
   function faceFrame(b) {
     const bloom = BLOOM_IDS.includes(st.template);
     const u = bloom ? .11 : Math.min(.24, Math.max(.1, Math.min(b.W, b.H * 1.5) * .13));
@@ -810,7 +851,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
 
   /* -------- public api -------- */
   paintCol.set(st.color);
-  applyTemplate('krathong');
+  applyTemplate('plate');
   resize();
   return {
     setTool(tab, sub) { st.tab = tab; if (sub) st.sub = sub; },
