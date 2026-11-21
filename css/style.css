@@ -270,6 +270,11 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
 /* ---------- front-view button ---------- */
 .front-btn { display: inline-flex; align-items: center; gap: 6px; height: var(--tap); padding: 0 16px 0 12px; border-radius: var(--r-pill); background: var(--surface); color: var(--text); font-size: var(--fs-s); font-weight: 600; --ia: var(--peri); --ib: var(--ink); transition: transform .35s var(--spring); margin-right: auto; }
 .front-btn:active { transform: scale(.92); transition-duration: .08s; }
+.shuffle-btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: var(--tap); padding: 0 18px 0 12px; border-radius: var(--r-pill); background: var(--pink); color: var(--ink); font-size: var(--fs-s); font-weight: 700; --ia: var(--cream); --ib: var(--ink); transition: transform .35s var(--spring); margin: 0 auto; box-shadow: 0 6px 18px rgba(235,146,179,.35); }
+.shuffle-btn:active { transform: scale(.92); transition-duration: .08s; }
+.shuffle-btn.roll svg { animation: roll .55s var(--spring); }
+@keyframes roll { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(200deg) scale(1.25); } 100% { transform: rotate(360deg) scale(1); } }
+.tile.more .tile-ico { background: transparent; border: 2px dashed rgba(251,248,255,.25); }
 .seg { height: var(--tap); align-items: center; }
 
 /* ---------- edge fades on scrolling rows ---------- */
@@ -330,4 +335,14 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
   .tiles, .swatches, .pills { cursor: grab; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
   .tiles::-webkit-scrollbar, .swatches::-webkit-scrollbar, .pills::-webkit-scrollbar { display: block; height: 6px; }
   .tiles::-webkit-scrollbar-thumb, .swatches::-webkit-scrollbar-thumb, .pills::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 6px; }
+}
+
+.tile.set .tile-ico { position: relative; overflow: visible; }
+.tile.set .tile-ico[data-n]::after { content: attr(data-n); position: absolute; right: -4px; top: -4px; min-width: 22px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--pink); color: var(--ink); font-size: 11px; font-weight: 700; line-height: 20px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.tile.set:active .tile-ico { transform: scale(.88); transition-duration: .08s; }
+@media (max-width: 380px) {
+  .thumbbar { gap: 6px; padding-left: 10px; padding-right: 10px; }
+  .seg button { width: 36px; }
+  .thumbbar .btn-primary { padding: 0 14px 0 10px; }
+  .shuffle-btn { padding: 0 14px 0 10px; }
 }

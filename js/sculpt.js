@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=11';
+import { CHARS } from './characters.js?v=12';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -281,9 +281,9 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
 
   /* -------- undo -------- */
   const decorState = () => decor.map(d => ({ kind: d.kind, vi: d.vi, scale: d.scale, color: d.color, base: d.base }));
-  const snap = () => ({ P: P.slice(), C: C.slice(), TM: TM.slice(), img: texG ? texG.getImageData(0, 0, texCv.width, texCv.height) : null, decor: decorState(), baseColor: '#' + baseMat.color.getHexString() });
+  const snap = () => ({ P: P.slice(), C: C.slice(), TM: TM.slice(), img: texG ? texG.getImageData(0, 0, texCv.width, texCv.height) : null, decor: decorState(), baseColor: '#' + baseMat.color.getHexString(), tpl: st.template });
   function restore(s) {
-    P.set(s.P); C.set(s.C); TM.set(s.TM); geo.attributes.texMix.needsUpdate = true; baseMat.color.set(s.baseColor);
+    P.set(s.P); C.set(s.C); TM.set(s.TM); geo.attributes.texMix.needsUpdate = true; baseMat.color.set(s.baseColor); if (s.tpl) st.template = s.tpl;
     if (s.img && texG && s.img.width === texCv.width) { texG.putImageData(s.img, 0, 0); texDirty = true; }
     clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base);
     geoDirty = true; colDirty = true;
@@ -368,11 +368,11 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     return best;
   }
   const pops = [];
-  function addDecor(kind, vi, scale, color, basePos, animate = false) {
+  function addDecor(kind, vi, scale, color, basePos, animate = false, t0 = 0) {
     const isInc = kind in INCENSE;
     const obj = isInc ? makeIncense(kind, color) : makeSticker(kind, color);
     const d = { kind, vi, obj, scale, color, base: basePos, inc: isInc };
-    obj.scale.setScalar(animate ? .001 : scale); if (animate) pops.push({ obj, s: scale, t0: performance.now() });
+    obj.scale.setScalar(animate ? .001 : scale); if (animate) pops.push({ obj, s: scale, t0: t0 || performance.now() });
     piece.add(obj); decor.push(d); updateDecor(d); dirty = true;
     return d;
   }
@@ -393,8 +393,57 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   }
   function clearDecorObjs() {
     if (typeof selRing !== 'undefined' && selRing) { selRing.visible = false; selected = null; }
-    for (const d of decor) { piece.remove(d.obj); d.obj.traverse(o => { if (o.material && o.material.map !== undefined && !o.isSprite && o.material !== stickMat && o.material !== coatMat && o.material !== emberMat) o.material.dispose?.(); }); }
+    for (const d of decor) dropDecor(d);
     decor = []; flames = []; dirty = true;
+  }
+  function dropDecor(d) { piece.remove(d.obj); d.obj.traverse(o => { if (o.material && o.material.map !== undefined && !o.isSprite && o.material !== stickMat && o.material !== coatMat && o.material !== emberMat) o.material.dispose?.(); }); }
+
+  /* -------- ready-made sets (face / centre / rim / extra), used by the easy tiles and shuffle -------- */
+  const FACE_KINDS = Object.keys(DECOR).filter(k => !DECOR[k].tint);
+  const GROUP_KINDS = {
+    face: FACE_KINDS, extra: Object.keys(DECOR).filter(k => DECOR[k].tint),
+    centre: ['incense3', 'incense1', 'candle', 'lotusopen'], rim: ['marigold', 'lotusbud', 'garland', 'leaf', 'coin'],
+  };
+  function shapeBox() {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, R = 0;
+    for (let i = 0; i < NV; i++) { const x = P[i * 3], y = P[i * 3 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; R = Math.max(R, Math.hypot(x, P[i * 3 + 2])); }
+    return { x0, x1, y0, y1, W: x1 - x0, H: y1 - y0, R };
+  }
+  const BLOOM_IDS = ['krathong', 'lotus'];
+  function faceFrame(b) {
+    const bloom = BLOOM_IDS.includes(st.template);
+    const u = bloom ? .11 : Math.min(.24, Math.max(.1, Math.min(b.W, b.H * 1.5) * .13));
+    return { cx: (b.x0 + b.x1) / 2, cy: b.y0 + b.H * (bloom ? .7 : .5) + u * .35, u };
+  }
+  const _o = new THREE.Vector3(), _back = new THREE.Vector3();
+  function frontVertex(x, y) {   // the clay surface facing the viewer at (x right, y up) — faces land on the side you're looking at
+    const sy = Math.sin(view.yaw), cy = Math.cos(view.yaw);
+    _o.set(x * cy + sy * 20, y, -x * sy + cy * 20); _back.set(-sy, 0, -cy); ray.set(_o, _back);
+    const h = ray.intersectObject(clay, false)[0];
+    return h ? nearestVertex(h.point.x, h.point.y, h.point.z) : -1;
+  }
+  function topVertex(ang, rf, R) {
+    const tx = Math.cos(ang) * R * rf, tz = Math.sin(ang) * R * rf; let best = 0, bs = -1e9;
+    for (let i = 0; i < NV; i++) { const d = Math.hypot(P[i * 3] - tx, P[i * 3 + 2] - tz); if (d < R * .1) { const sc = P[i * 3 + 1] - d * 2; if (sc > bs) { bs = sc; best = i; } } }
+    return best;
+  }
+  const ITEM_SCALE = { incense3: .68, incense1: .68, candle: .66, lotusopen: 1.15, marigold: .95, lotusbud: .95, garland: 1, leaf: 1, coin: .85 };
+  function dressNow(groups, delay = 0) {
+    const kill = new Set(); for (const g in groups) for (const k of GROUP_KINDS[g] || []) kill.add(k);
+    decor = decor.filter(d => { if (kill.has(d.kind)) { dropDecor(d); return false; } return true; });
+    if (selected && !decor.includes(selected)) select(null);
+    const b = shapeBox(), f = faceFrame(b), fs = f.u / .18, R0 = Math.min(1, b.R / .875);
+    let t = performance.now() + delay, n = 0;
+    clay.updateMatrixWorld(); geo.computeBoundingSphere(); geo.boundingBox = null;
+    for (const g of ['face', 'extra']) for (const it of groups[g] || []) {
+      const vi = frontVertex(f.cx + it.x * f.u, f.cy + it.y * f.u); if (vi < 0) continue;
+      addDecor(it.kind, vi, DECOR[it.kind].size * 2 * fs * (it.s || 1), it.color || st.color, null, true, t + n++ * 70);
+    }
+    for (const g of ['centre', 'rim']) for (const it of groups[g] || []) {
+      const rf = (it.rf || 0) * (g === 'rim' && !BLOOM_IDS.includes(st.template) ? .6 : 1);   // round shapes: keep the ring on top, not on the face
+      addDecor(it.kind, topVertex(it.ang || 0, rf, b.R), (ITEM_SCALE[it.kind] || 1) * (it.s || 1) * (it.kind.startsWith('incense') || it.kind === 'candle' ? 1 : R0), it.color || st.itemColor[it.kind] || ITEM_COLOR[it.kind] || st.color, null, true, t + n++ * 70);
+    }
+    rebuildFlames(); dirty = true;
   }
   function rebuildFlames() { flames = []; for (const d of decor) if (d.obj.userData.flames) flames.push(...d.obj.userData.flames); }
 
@@ -717,7 +766,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       geoDirty = true; colDirty = true; if (k0 >= 1) { P.set(morph.toP); morph = null; }
     }
     for (let i = pops.length - 1; i >= 0; i--) {
-      const p = pops[i], k = Math.min(1, (now - p.t0) / 320), e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+      const p = pops[i], k = Math.max(0, Math.min(1, (now - p.t0) / 320)), e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
       p.obj.scale.setScalar(Math.max(.001, p.s * e)); dirty = true; if (k >= 1) { p.obj.scale.setScalar(p.s); pops.splice(i, 1); }
     }
     if (camTween) {
@@ -774,6 +823,23 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     scaleAll, deleteSelected, deselect() { select(null); },
     _decorScreen() { return decor.map(screenOf); },
     gradient(stops) { gradientFill(stops); },
+    paintAll(stops) {   // one tap: colour the whole piece (photo pieces lose the photo; undo brings it back)
+      if (morph) { P.set(morph.toP); C.set(morph.toC); morph = null; geoDirty = true; }
+      pushUndo(); gradientFill(stops);
+      if (photoTex) { TM.fill(0); geo.attributes.texMix.needsUpdate = true; }
+      onAction('morph'); onChange();
+    },
+    dress(groups) { if (morph) { P.set(morph.toP); C.set(morph.toC); morph = null; geoDirty = true; colDirty = true; } pushUndo(); dressNow(groups); onAction('place'); onChange(); },
+    shuffle(r) {
+      select(null); const before = snap();
+      applyTemplate(r.tpl); const m = morph;
+      if (m) P.set(m.toP);
+      if (r.grad) { gradientFill(r.grad); if (m) m.toC = C.slice(); }
+      if (r.base) baseMat.color.set(r.base);
+      dressNow(r.groups || {}, m ? 380 : 0);
+      if (m) { P.set(m.fromP); C.set(m.fromC); geoDirty = true; }
+      undoStack.push(before); onChange();
+    },
     get dirtyWork() { return undoStack.length > 0; },
     clearDecor() { if (!decor.length) return; pushUndo(); clearDecorObjs(); onChange(); },
     frontView(instant) {

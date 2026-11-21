@@ -1,16 +1,16 @@
 // 2D drawings of the Moldable blobs (canvas) — light enough for helper bubbles and pins.
-import { CHARDATA } from './chardata.js?v=11';
+import { CHARDATA } from './chardata.js?v=12';
 
 export const CHARS = CHARDATA;
 export const CHAR_KEYS = ['gumdrop', 'diamond', 'splat', 'flower', 'cloud'];
 
 // Which blob helps with which tool (matches each person's skill).
 export const HELPERS = {
-  template: { key: 'gumdrop', tip: 'เริ่มจากทรงไหนดี? เลือกเลย แล้วปั้นต่อตามใจ' },
-  shape:   { key: 'diamond', tip: 'ลากบนก้อนเพื่อปั้น ลากที่ว่างเพื่อหมุน สองนิ้วซูม' },
-  paint:   { key: 'splat',   tip: 'เลือกสีแล้วระบายเลย หรือกด "ไล่สี Moldable" ทีเดียวสวย' },
-  decor:   { key: 'flower',  tip: 'ใส่ตากับปากให้กระทงมีชีวิต แตะตรงที่อยากวาง' },
-  incense: { key: 'cloud',   tip: 'ธูป เทียน ดอกไม้ แตะวางตรงไหนก็ได้!' },
+  template: { key: 'gumdrop', tip: 'เลือกทรงที่ชอบ หรือกด "สุ่ม" ให้จัดให้ทั้งใบเลย' },
+  shape:   { key: 'diamond', tip: 'กดยืดหดได้เลย หรือลากบนก้อนเพื่อดึง ลากที่ว่างเพื่อหมุน' },
+  paint:   { key: 'splat',   tip: 'แตะชุดสี ได้สีทั้งใบทีเดียว หรือเลือกพู่กันระบายเอง' },
+  decor:   { key: 'flower',  tip: 'แตะหน้าสำเร็จรูปได้เลย หรือเลือกชิ้นเดี่ยวแล้วแตะวางบนกระทง' },
+  incense: { key: 'cloud',   tip: 'แตะชุดธูปเทียนหรือดอกไม้ ใส่ให้ครบทีเดียว' },
   done:    { key: 'gumdrop', tip: 'สวยมาก! เก็บรูปไว้ก่อน แล้วไปลอยกัน' },
 };
 

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/maplibre-gl.css">
-<link rel="stylesheet" href="css/style.css?v=11">
+<link rel="stylesheet" href="css/style.css?v=12">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
 </head>
 <body>
@@ -67,8 +67,9 @@
       <div class="seg">
         <button id="btn-undo" aria-label="ย้อนกลับ" data-icon="undo" disabled></button>
         <button id="btn-redo" aria-label="ทำซ้ำ" data-icon="redo" disabled></button>
+        <button id="btn-front" aria-label="หันด้านหน้า" data-icon="front"></button>
       </div>
-      <button class="front-btn" id="btn-front" data-icon="front">ด้านหน้า</button>
+      <button class="shuffle-btn" id="btn-shuffle" data-icon="dice">สุ่ม</button>
       <button class="btn-primary" id="btn-done" data-icon="check">เสร็จแล้ว</button>
     </div>
     <div class="tools" id="tools">
@@ -182,6 +183,6 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
-<script type="module" src="js/app.js?v=11"></script>
+<script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

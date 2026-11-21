@@ -1,14 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=11';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=11';
-import { createMap } from './map.js?v=11';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=11';
-import * as data from './data.js?v=11';
-import { createRiver } from './river.js?v=11';
-import { icon, iconEl } from './icons.js?v=11';
-import { paintBackdrop, createLife } from './scene.js?v=11';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=11';
-import * as photo from './photo.js?v=11';
+import { SPOTS, STUDIO, READY } from './config.js?v=12';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=12';
+import { createMap } from './map.js?v=12';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=12';
+import * as data from './data.js?v=12';
+import { createRiver } from './river.js?v=12';
+import { icon, iconEl } from './icons.js?v=12';
+import { paintBackdrop, createLife } from './scene.js?v=12';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=12';
+import * as photo from './photo.js?v=12';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -130,7 +130,40 @@ const subOf = { shape: 'grab', paint: 'brush', decor: 'eye-mold', incense: 'ince
 const COLORS = ['#EB92B3', '#CBA5D1', '#9BB0DE', '#7FA9B1', '#5A68B5', '#FBF8FF', '#F2C98B', '#F6B8CF', '#A9D8C3', '#252941'];
 const SHAPE_TOOLS = [['grab', 'ดึง'], ['add', 'พอก'], ['dig', 'ขุด'], ['inflate', 'พอง'], ['deflate', 'ยุบ'], ['smooth', 'เกลี่ย'], ['crease', 'ร่อง'], ['flatten', 'ทำแบน'], ['scrape', 'ขูดออก'], ['slice', 'มีดตัด']];
 const RESIZE = [['wider', 'กว้างขึ้น', 1.1, 1], ['narrower', 'แคบลง', .9, 1], ['taller', 'สูงขึ้น', 1, 1.12], ['shorter', 'เตี้ยลง', 1, .88]];
-const PAINT_TOOLS = [['brush', 'พู่กัน'], ['fill', 'เทสี'], ['gradient', 'ไล่สี']];
+const PAINT_TOOLS = [['brush', 'พู่กัน'], ['fill', 'เทสี']];
+// easy mode: few tools up front, the rest behind "เพิ่มเติม"
+const EASY_SHAPE = ['grab', 'add', 'smooth'];
+const EASY_DECOR = ['eye-mold', 'eye-happy', 'mouth-smile', 'blush', 'heart', 'star', 'flower', 'sparkle'];
+const more = { shape: false, decor: false };
+const GRADS = [
+  ['พาสเทล', ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3']], ['บัวชมพู', ['#EFA9C4', '#F3C6D8', '#F6C2D6', '#FFE7A3']],
+  ['ใบตอง', ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3']], ['ฟ้าใส', ['#7FA9B1', '#9BB0DE', '#DCE6FA']],
+  ['ทองคำ', ['#E9A23B', '#F2C98B', '#FFF1C9']], ['คืนเพ็ญ', ['#5A68B5', '#9BB0DE', '#CBA5D1']], ['สายรุ้ง', ['#9BB0DE', '#A9D8C3', '#FFE7A3', '#F6B8CF']],
+];
+const BLUSH = [{ kind: 'blush', x: -1.75, y: -.7 }, { kind: 'blush', x: 1.75, y: -.7 }];
+const eyes = (k, s) => [{ kind: k, x: -1, y: 0, s }, { kind: k, x: 1, y: 0, s }];
+const FACES = [
+  ['ยิ้มหวาน', [...eyes('eye-mold'), { kind: 'mouth-smile', x: 0, y: -1.05 }, ...BLUSH]],
+  ['ตาหยี', [...eyes('eye-happy'), { kind: 'mouth-open', x: 0, y: -1 }, ...BLUSH]],
+  ['ง่วงนอน', [...eyes('eye-sleep'), { kind: 'mouth-o', x: 0, y: -1, s: .8 }, ...BLUSH]],
+  ['ตาวิ้ง', [...eyes('eye-sparkle'), { kind: 'mouth-cat', x: 0, y: -1.05 }, ...BLUSH]],
+  ['หลงรัก', [...eyes('eye-heart'), { kind: 'mouth-grin', x: 0, y: -1.05 }]],
+  ['ทะเล้น', [...eyes('eye-dot'), { kind: 'mouth-tongue', x: 0, y: -1 }, { kind: 'freckles', x: -1.6, y: -.65, s: .8 }, { kind: 'freckles', x: 1.6, y: -.65, s: .8 }]],
+  ['ซึ้งใจ', [...eyes('eye-cry'), { kind: 'mouth-wavy', x: 0, y: -1.1, s: .8 }]],
+  ['ตาดาว', [...eyes('eye-star'), { kind: 'mouth-smile', x: 0, y: -1.05 }, ...BLUSH]],
+];
+const ring = (kind, n, rf, a0 = Math.PI / 2) => Array.from({ length: n }, (_, i) => ({ kind, rf, ang: a0 + i * Math.PI * 2 / n }));
+const SETS = [
+  ['ธูปเทียน', 'incense3', { centre: [{ kind: 'candle', rf: .14, ang: Math.PI / 2 }, { kind: 'incense3', rf: .14, ang: -Math.PI / 2 }] }],
+  ['บัวบาน', 'lotusopen', { centre: [{ kind: 'lotusopen', rf: 0 }] }],
+  ['ดาวเรือง', 'marigold', { rim: ring('marigold', 6, .78) }],
+  ['บัวตูม', 'lotusbud', { rim: ring('lotusbud', 5, .74) }],
+  ['มาลัย', 'garland', { rim: ring('garland', 4, .8, Math.PI / 4) }],
+  ['เหรียญ', 'coin', { rim: [-.55, 0, .55].map(d => ({ kind: 'coin', rf: .5, ang: Math.PI / 2 + d })) }],
+];
+const RIM_SETS = SETS.slice(2, 5).map(x => x[2].rim), TOP_SETS = RIM_SETS.slice(0, 2);
+const BASES = ['#ECE9F7', '#F7E3EC', '#E3F1EA', '#FFF1D6', '#E2E8F8'];
+const SPARKS = ['sparkle', 'star', 'heart', 'flower', 'lotus', 'butterfly'];
 const TPL_ICON = { krathong: 'krathong', round: 'tpl', lotus: 'lotusopen', heart: 'heart' };
 let paintColor = COLORS[0];
 
@@ -153,7 +186,32 @@ function tile(label, active, node, extra = '') {
   const l = document.createElement('span'); l.className = 'tile-label'; l.textContent = label;
   b.append(box, l); b.setAttribute('aria-pressed', active ? 'true' : 'false'); return b;
 }
-function gradIcon() { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 64, 64, 0); ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'].forEach((x, i) => gr.addColorStop(i / 3, x)); g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c; }
+function gradIcon(stops = GRADS[0][1]) { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 60, 0, 4); stops.forEach((x, i) => gr.addColorStop(i / (stops.length - 1), x)); g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c; }
+function faceIcon(parts) {
+  const c = document.createElement('canvas'); c.width = c.height = 88; c.className = 'big'; const g = c.getContext('2d');
+  g.fillStyle = '#F6C2D6'; g.beginPath(); g.arc(44, 44, 38, 0, 7); g.fill();
+  for (const p of parts) { const D = mod.DECOR[p.kind]; g.save(); g.translate(44 + p.x * 12, 46 - p.y * 13); const k = D.size * .5 * (p.s || 1); g.scale(k, k); g.lineCap = 'round'; g.lineJoin = 'round'; D.draw(g); g.restore(); }
+  return c;
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+function shuffleRecipe() {
+  const ids = mod.TEMPLATES.map(t => t.id).filter(id => id !== studio.state.template);
+  const tpl = pick(ids), isChar = !!CHARS[tpl], bloom = tpl === 'krathong' || tpl === 'lotus';
+  const groups = {};
+  groups.face = Math.random() < (isChar ? 1 : bloom ? .4 : .85) ? pick(FACES)[1] : [];
+  groups.centre = Math.random() < .8 ? SETS[0][2].centre : SETS[1][2].centre;
+  groups.rim = Math.random() < .8 ? pick(bloom ? RIM_SETS : TOP_SETS) : [];
+  groups.extra = [];
+  if (Math.random() < .55) { const k = pick(SPARKS), col = pick(COLORS.slice(0, 9)), y = .5 + Math.random() * .9, x = 2.6 + Math.random() * .6; groups.extra.push({ kind: k, x: -x, y, s: .7, color: col }, { kind: k, x, y, s: .7, color: col }); }
+  return { tpl, grad: isChar && Math.random() < .5 ? null : pick(GRADS)[1], base: pick(BASES), groups };
+}
+$('#btn-shuffle').addEventListener('click', async () => {
+  if (!studio) return;
+  if (studio.state.template === 'photo' && studio.dirtyWork && !(await ask('สุ่มกระทงใบใหม่?', 'ทรงจากรูปจะหาย', 'สุ่มเลย'))) return;
+  const b = $('#btn-shuffle'); b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll');
+  studio.shuffle(shuffleRecipe()); sfx('chime'); renderTools();
+  tip(pick(['ได้แบบนี้! ชอบไหม ถ้าไม่ชอบกดสุ่มอีกได้', 'ว้าว ใบนี้น่ารัก แต่งต่อได้เลยนะ', 'ไม่ถูกใจ กดย้อนกลับได้ หรือสุ่มอีกที']));
+});
 function decorIcon(kind) {
   const c = document.createElement('canvas'); c.width = c.height = 88; c.className = 'big'; const g = c.getContext('2d');
   g.save(); g.translate(44, 44); g.scale(.24, .24); g.lineCap = 'round'; g.lineJoin = 'round';
@@ -187,18 +245,38 @@ function renderTools() {
       studio.reset(t.id); renderTools();
     });
     box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
-    for (const [ic, th, sx, sy] of RESIZE) add(tile(th, false, iconEl(ic)), () => { if (!studio.scaleAll(sx, sy)) tip(sx > 1 || sy > 1 ? 'ใหญ่สุดแล้ว เดี๋ยวล้นจอ' : 'เล็กสุดแล้วจ้า'); });
     add(tile('เริ่มใหม่', false, iconEl('reset'), 'danger'), async () => { if (await askReset('เริ่มปั้นใหม่?')) { studio.reset(st.template); renderTools(); } });
     return;
   }
-  if (tab === 'shape' || tab === 'paint') {
-    for (const [id, th] of (tab === 'shape' ? SHAPE_TOOLS : PAINT_TOOLS)) add(tile(th, st.sub === id, id === 'gradient' ? gradIcon() : iconEl(id)), () => {
+  const sep = () => box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
+  const moreTile = (key) => add(tile(more[key] ? 'น้อยลง' : 'เพิ่มเติม', false, iconEl(more[key] ? 'minus' : 'more'), 'more'), () => {
+    more[key] = !more[key]; renderTools(); if (more[key]) requestAnimationFrame(() => box.scrollTo({ left: box.scrollWidth, behavior: 'smooth' }));
+  });
+  if (tab === 'shape') {
+    if (!more.shape && !EASY_SHAPE.includes(st.sub)) { studio.setTool('shape', 'grab'); st.sub = 'grab'; }
+    for (const [ic, th, sx, sy] of RESIZE) add(tile(th, false, iconEl(ic)), () => { if (!studio.scaleAll(sx, sy)) tip(sx > 1 || sy > 1 ? 'ใหญ่สุดแล้ว เดี๋ยวล้นจอ' : 'เล็กสุดแล้วจ้า'); });
+    sep();
+    for (const [id, th] of SHAPE_TOOLS) if (more.shape || EASY_SHAPE.includes(id)) add(tile(th, st.sub === id, iconEl(id)), () => {
       studio.setTool(tab, id); renderTools(); if (id === 'slice') tip('ลากเส้นผ่านก้อน ส่วนที่เล็กกว่าจะถูกตัดออก');
     });
+    moreTile('shape');
+    if (!more.shape) { slF.hidden = true; studio.setStrength(.55); }
+  } else if (tab === 'paint') {
+    for (const [th, stops] of GRADS) add(tile(th, false, gradIcon(stops), 'set'), () => { studio.paintAll(stops); });
+    sep();
+    for (const [id, th] of PAINT_TOOLS) add(tile(th, st.sub === id, iconEl(id)), () => { studio.setTool(tab, id); renderTools(); });
   } else if (tab === 'decor') {
-    for (const k of Object.keys(mod.DECOR)) add(tile(mod.DECOR[k].th, st.sub === k, decorIcon(k)), () => { studio.setTool(tab, k); renderTools(); });
+    for (const [th, parts] of FACES) add(tile(th, false, faceIcon(parts), 'set'), () => studio.dress({ face: parts }));
+    sep();
+    for (const k of Object.keys(mod.DECOR)) if (more.decor || EASY_DECOR.includes(k) || st.sub === k) add(tile(mod.DECOR[k].th, st.sub === k, decorIcon(k)), () => { studio.setTool(tab, k); renderTools(); });
+    moreTile('decor');
     slF.hidden = true;
   } else if (tab === 'incense') {
+    for (const [th, ic, g] of SETS) {   // ready-made sets: one tap puts the whole set on
+      const b = tile(th, false, iconEl(ic), 'set'); b.style.setProperty('--ia', mod.ITEM_COLOR[ic] || '#CBA5D1');
+      const n = (g.rim || g.centre).length; if (n > 1) b.querySelector('.tile-ico').dataset.n = g.rim ? '×' + n : 'ชุด'; add(b, () => studio.dress(g));
+    }
+    sep();
     for (const [k, th] of Object.entries(mod.INCENSE)) {
       const b = tile(th, st.sub === k, iconEl(k)); const ic = studio.itemColor(k);
       if (ic && st.sub !== k) b.style.setProperty('--ia', ic);
@@ -213,7 +291,6 @@ function renderTools() {
   if (tab === 'paint' && st.sub !== 'brush') { slF.hidden = true; slS.hidden = true; }
   if (tab === 'shape' && st.sub === 'slice') { slS.hidden = true; slF.hidden = true; }
   if (tab === 'paint' || tab === 'decor' || (tab === 'incense' && studio.itemColor(st.sub))) {
-    if (tab === 'paint' && st.sub === 'gradient') return;
     const cur = tab === 'incense' ? studio.itemColor(st.sub) : paintColor;
     const sw = document.createElement('div'); sw.className = 'swatches';
     for (const c of COLORS) {
@@ -341,7 +418,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=11');
+      mod = await import('./sculpt.js?v=12');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);
