@@ -5,12 +5,32 @@ import { createMap } from './map.js';
 import { makeCard, makeStory, BACKDROPS } from './card.js';
 import * as data from './data.js';
 import { createRiver } from './river.js';
+import { icon, iconEl } from './icons.js';
+import { paintBackdrop, createLife } from './scene.js';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); };
 
 /* ---------------- intro ---------------- */
-for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 44, mood: 'smile' }));
+// put a duotone icon in front of every element that asks for one
+function decorate(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (!el.querySelector(':scope > .ico')) el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); }); }
+decorate();
+for (const k of CHAR_KEYS) $('#intro-chars').append(charCanvas(k, { size: 40, mood: 'smile' }));
+// living moonlit scene behind the intro
+(function introScene() {
+  const cv = $('#intro-scene'), g = cv.getContext('2d'); let life, W, H, dpr, bg, raf;
+  const size = () => {
+    dpr = Math.min(2, devicePixelRatio || 1); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr;
+    const horizon = Math.round(H * .56); bg = document.createElement('canvas'); bg.width = cv.width; bg.height = cv.height;
+    const b = bg.getContext('2d'); b.setTransform(dpr, 0, 0, dpr, 0, 0); const moon = { x: W * .8, y: horizon - 70, r: 24 };
+    paintBackdrop(b, W, H, { horizon, spot: 'moldable', moon });
+    life = createLife(W, H, horizon, { lanterns: 9, moon });
+  };
+  size(); addEventListener('resize', size);
+  let last = 0;
+  const loop = (t) => { raf = requestAnimationFrame(loop); if ($('#intro').classList.contains('hide')) { cancelAnimationFrame(raf); return; } if (t - last < 33) return; const dt = (t - last) / 1000; last = t; g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(bg, 0, 0); g.setTransform(dpr, 0, 0, dpr, 0, 0); life.draw(g, t, Math.min(.1, dt)); };
+  raf = requestAnimationFrame(loop);
+})();
 $('#intro-art').innerHTML = krathongArt();
 
 // Illustrated krathong on moonlit water (SVG, no 3D needed on the first screen).
@@ -54,154 +74,113 @@ $('#btn-start').addEventListener('click', async () => {
 
 /* ---------------- map sheet ---------------- */
 let currentSpot = SPOTS[0];
-function openSheet(title, sub, avaKey, bodyHTML) {
+const SPOT_COLOR = { moldable: 'var(--lilac)', rama8: 'var(--pink)', rotfai: 'var(--teal)' };
+function openSheet(title, sub, avaKey, bodyHTML, color) {
   $('#sheet-title').textContent = title; $('#sheet-sub').textContent = sub;
+  $('#sheet').style.setProperty('--spot', color || 'var(--pink)');
   drawChar($('#sheet-ava'), avaKey, { size: 52, mood: 'smile' });
-  $('#sheet-body').innerHTML = bodyHTML; $('#sheet').hidden = false;
+  $('#sheet-body').innerHTML = bodyHTML; decorate($('#sheet-body')); $('#sheet').hidden = false;
 }
 function openSpot(spot) {
   currentSpot = spot;
-  openSheet(spot.name, spot.sub, 'gumdrop', `
-    <div class="sheet-say">${spot.studio ? 'บ่อเล็กๆ หน้าบ้านพวกเรา ใครก็มาลอยได้นะ!' : 'มาลอยที่นี่กันไหม ปั้นเองหรือรับกระทงฟรีก็ได้'}</div>
+  openSheet(spot.name, spot.sub, spot.studio ? 'gumdrop' : spot.id === 'rama8' ? 'splat' : 'diamond', `
+    <p class="sheet-say">${spot.studio ? 'บ่อเล็กๆ หน้าบ้านพวกเรา ใครก็มาลอยได้นะ' : 'ปั้นกระทงเองหรือรับใบที่ปั้นไว้แล้วก็ได้ แล้วไปลอยด้วยกัน'}</p>
     <div class="sheet-actions">
-      <button class="btn-primary" id="act-sculpt">ปั้นกระทงเอง</button>
       <div class="row">
-        <button class="btn-ghost" id="act-free">รับกระทงฟรี</button>
-        <button class="btn-ghost" id="act-river">ดูแม่น้ำ</button>
+        <button class="btn-cream" id="act-free" data-icon="gift">รับกระทงฟรี</button>
+        <button class="btn-surface" id="act-river" data-icon="wave">ดูแม่น้ำ</button>
       </div>
-    </div>`);
-  if (spot.studio) $('.sheet-actions').insertAdjacentHTML('beforeend', `<a class="link-soft" href="${STUDIO.ig}" target="_blank" rel="noopener">ทีมที่ทำเกมนี้ · ${STUDIO.igName}</a>`);
+      <button class="btn-primary" id="act-sculpt" data-icon="shape">ปั้นกระทงเอง</button>
+    </div>`, SPOT_COLOR[spot.id]);
+  if (spot.studio) $('.sheet-actions').insertAdjacentHTML('beforeend', `<a class="link-soft" href="${STUDIO.ig}" target="_blank" rel="noopener">ทีมที่ทำเกมนี้ ${STUDIO.igName}</a>`);
   $('#act-sculpt').addEventListener('click', () => openStudio(spot));
   $('#act-free').addEventListener('click', () => openFree(spot));
   $('#act-river').addEventListener('click', () => openRiver(spot));
 }
-function openStudioInfo(s) {
-  openSheet(s.name, 'ทีมที่ปั้นเกมนี้', 'gumdrop', `
-    <div class="sheet-say">สวัสดี! พวกเราคือก้อนนุ่มจาก Moldable Studio ทีมออกแบบ UX/UI ที่ทำเกมนี้ขึ้นมา ขอให้สนุกกับการลอยกระทงนะ</div>
-    <div class="sheet-actions"><a class="btn-ghost" href="${s.ig}" target="_blank" rel="noopener">แวะทักทายที่ IG ${s.igName}</a></div>`);
-}
+function openStudioInfo(s) { openSpot(SPOTS.find(x => x.studio) || SPOTS[0]); }
 $('#sheet-close').addEventListener('click', () => { $('#sheet').hidden = true; });
 
 /* ---------------- studio ---------------- */
 let studio = null, mod = null, tab = 'shape';
 const subOf = { shape: 'grab', paint: 'brush', decor: 'eye-mold', incense: 'incense3' };
-const COLORS = ['#EB92B3', '#CBA5D1', '#9BB0DE', '#7FA9B1', '#5A68B5', '#F4F2FA', '#FFE38A', '#F6C98B', '#F2A7A7', '#A9D8C3', '#252941'];
-const SHAPE_TOOLS = [
-  ['grab', 'ดึง', 'M12 3l3 3h-2v4h4V8l3 3-3 3v-2h-4v4h2l-3 3-3-3h2v-4H7v2l-3-3 3-3v2h4V6H9z'],
-  ['add', 'พอก', 'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z'],
-  ['dig', 'ขุด', 'M5 11h14v2H5z'],
-  ['inflate', 'พอง', 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10z'],
-  ['deflate', 'ยุบ', 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'],
-  ['smooth', 'เกลี่ย', 'M3 14c3-4 5-4 8 0s5 4 8 0l2 1.5c-4 5-7 5-10 1s-5-4-7 0z'],
-  ['crease', 'ร่อง', 'M4 5l8 14 8-14h-3l-5 9-5-9z'],
-  ['flatten', 'ทำแบน', 'M3 14h18v3H3zM6 8h12l2 4H4z'],
-  ['scrape', 'ขูดออก', 'M4 17h16v3H4zM14 3l5 5-7 7H7v-5z'],
-  ['slice', 'มีดตัด', 'M3 19 19 3l2 2L8 18l-5 2zM14 4l6 6-2 2-6-6z'],
-];
-const RESIZE = [
-  ['กว้างขึ้น', 1.1, 1, 'M2 12l4-4v3h12V8l4 4-4 4v-3H6v3z'],
-  ['แคบลง', .9, 1, 'M11 12 7 8v3H2v2h5v3zm2 0 4-4v3h5v2h-5v3z'],
-  ['สูงขึ้น', 1, 1.12, 'M12 2l4 4h-3v12h3l-4 4-4-4h3V6H8z'],
-  ['เตี้ยลง', 1, .88, 'M12 11 8 7h3V2h2v5h3zm0 2 4 4h-3v5h-2v-5H8z'],
-];
-const ITEM_ICON = {
-  incense3: 'M11 9h2v13h-2zM7 11h2v11H7zm8 0h2v11h-2zM12 3.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8zM8 6.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zm8 0a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6z',
-  incense1: 'M11 8h2v14h-2zM12 3a2.4 2.4 0 1 1 0 4.8A2.4 2.4 0 0 1 12 3z',
-  candle: 'M9 10h6v11H9zM12 2c1.8 2.2 2.4 4 1.5 5.5-.4.6-.9 1-1.5 1s-1.1-.4-1.5-1C9.6 6 10.2 4.2 12 2z',
-  marigold: 'M12 4a3 3 0 0 1 2.9 2.2A3 3 0 0 1 19 9.5a3 3 0 0 1-.6 4.3A3 3 0 0 1 15 18.5a3 3 0 0 1-6 0 3 3 0 0 1-3.4-4.7A3 3 0 0 1 9.1 6.2 3 3 0 0 1 12 4z',
-  lotusbud: 'M12 3c3.5 3.2 4.8 7 3.8 11.5-1.1 1-2.4 1.5-3.8 1.5s-2.7-.5-3.8-1.5C7.2 10 8.5 6.2 12 3zM5 15c2 0 4.5 1.2 7 3.2 2.5-2 5-3.2 7-3.2-1.3 3.4-4 5.5-7 5.5S6.3 18.4 5 15z',
-  lotusopen: 'M12 4c2.2 2.4 3 5 2.6 8H9.4C9 9 9.8 6.4 12 4zM4 9c3 .2 5 1.7 6 4.5L8.2 15C5.8 14 4.4 12 4 9zm16 0c-.4 3-1.8 5-4.2 6L14 13.5c1-2.8 3-4.3 6-4.5zM3 16c3-1 6.2-1 9 .8 2.8-1.8 6-1.8 9-.8-1.6 2.6-5 4.5-9 4.5S4.6 18.6 3 16z',
-  garland: 'M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
-  leaf: 'M12 2l6 18-6-3-6 3z',
-  coin: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm-1 4v2H9v2h4v1H9v4h2v2h2v-2h2v-2h-4v-1h4V9h-2V7z',
-};
-const PAINT_TOOLS = [
-  ['brush', 'พู่กัน', 'M20 3l1 1-9 11-2-2zM8 14l2 2c0 3-2 5-6 5 1-1 1-3 1-4 0-2 1-3 3-3z'],
-  ['fill', 'เทสี', 'M12 2.5s7 7.3 7 12a7 7 0 1 1-14 0c0-4.7 7-12 7-12z'],
-  ['gradient', 'ไล่สี Moldable', null],
-];
+const COLORS = ['#EB92B3', '#CBA5D1', '#9BB0DE', '#7FA9B1', '#5A68B5', '#FBF8FF', '#F2C98B', '#F6B8CF', '#A9D8C3', '#252941'];
+const SHAPE_TOOLS = [['grab', 'ดึง'], ['add', 'พอก'], ['dig', 'ขุด'], ['inflate', 'พอง'], ['deflate', 'ยุบ'], ['smooth', 'เกลี่ย'], ['crease', 'ร่อง'], ['flatten', 'ทำแบน'], ['scrape', 'ขูดออก'], ['slice', 'มีดตัด']];
+const RESIZE = [['wider', 'กว้างขึ้น', 1.1, 1], ['narrower', 'แคบลง', .9, 1], ['taller', 'สูงขึ้น', 1, 1.12], ['shorter', 'เตี้ยลง', 1, .88]];
+const PAINT_TOOLS = [['brush', 'พู่กัน'], ['fill', 'เทสี'], ['gradient', 'ไล่สี']];
+const TPL_ICON = { krathong: 'krathong', round: 'tpl', lotus: 'lotusopen', heart: 'heart' };
 let paintColor = COLORS[0];
 
 function setHelper(t) {
   const h = HELPERS[t] || HELPERS.shape;
   drawChar($('#helper-ava'), h.key, { size: 46, mood: 'smile' });
   $('#helper-name').textContent = CHARS[h.key].name;
-  $('#helper-tip').textContent = h.tip;
-  const el = $('#helper'); el.classList.remove('min', 'pop'); void el.offsetWidth; el.classList.add('pop');
-  clearTimeout(setHelper.t); setHelper.t = setTimeout(() => el.classList.add('min'), 6000);
+  tip(h.tip);
 }
+function tip(text) {
+  $('#helper-tip').textContent = text;
+  const el = $('#helper'); el.hidden = true; void el.offsetWidth; el.hidden = false; $('#helper-btn').classList.remove('has-tip');
+  clearTimeout(setHelper.t); setHelper.t = setTimeout(() => { el.hidden = true; $('#helper-btn').classList.add('has-tip'); }, 5000);
+}
+$('#helper-btn').addEventListener('click', () => { const el = $('#helper'); if (el.hidden) tip($('#helper-tip').textContent); else { el.hidden = true; clearTimeout(setHelper.t); } });
 
-function tip(text) { $('#helper-tip').textContent = text; const el = $('#helper'); el.classList.remove('min', 'pop'); void el.offsetWidth; el.classList.add('pop'); clearTimeout(setHelper.t); setHelper.t = setTimeout(() => el.classList.add('min'), 5000); }
-function chip(label, active, iconEl) {
-  const b = document.createElement('button'); b.className = 'chip' + (active ? ' active' : '');
-  if (iconEl) b.append(iconEl); b.append(label); return b;
+function tile(label, active, node, extra = '') {
+  const b = document.createElement('button'); b.className = 'tile' + (active ? ' active' : '') + (extra ? ' ' + extra : '');
+  const box = document.createElement('div'); box.className = 'tile-ico'; if (node) box.append(node);
+  const l = document.createElement('span'); l.className = 'tile-label'; l.textContent = label;
+  b.append(box, l); b.setAttribute('aria-pressed', active ? 'true' : 'false'); return b;
 }
-const svgIcon = (d) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = `<path d="${d}"/>`; return s; };
-function gradIcon() { const c = document.createElement('canvas'); c.width = c.height = 68; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 68, 68, 0); ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'].forEach((x, i) => gr.addColorStop(i / 3, x)); g.fillStyle = gr; g.beginPath(); g.arc(34, 34, 30, 0, 7); g.fill(); return c; }
+function gradIcon() { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 64, 64, 0); ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'].forEach((x, i) => gr.addColorStop(i / 3, x)); g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 28, 0, 7); g.fill(); return c; }
 function decorIcon(kind) {
-  const c = document.createElement('canvas'); c.width = c.height = 68; const g = c.getContext('2d');
-  g.save(); g.translate(34, 34); g.scale(.21, .21); g.lineCap = 'round'; g.lineJoin = 'round';
+  const c = document.createElement('canvas'); c.width = c.height = 88; c.className = 'big'; const g = c.getContext('2d');
+  g.save(); g.translate(44, 44); g.scale(.24, .24); g.lineCap = 'round'; g.lineJoin = 'round';
   const D = mod.DECOR[kind]; D.draw(g);
-  if (D.tint) { g.globalCompositeOperation = 'source-in'; g.fillStyle = paintColor; g.fillRect(-160, -160, 320, 320); }
+  if (D.tint) { g.globalCompositeOperation = 'source-in'; g.fillStyle = paintColor; g.fillRect(-200, -200, 400, 400); }
   g.restore(); g.globalCompositeOperation = 'destination-over';
-  g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(34, 34, 32, 0, 7); g.fill();
+  g.fillStyle = '#FBF8FF'; g.beginPath(); g.arc(44, 44, 38, 0, 7); g.fill();
   return c;
 }
 function tplIcon(id) {
-  if (CHARS[id]) return charCanvas(id, { size: 34 });
-  const d = { krathong: 'M12 3c2.6 2.4 3.6 5 3.2 7.6H8.8C8.4 8 9.4 5.4 12 3zM2.5 11.5l3 1.3 2.2-1.6L10 12.6l2-1.6 2 1.6 2.3-1.4 2.2 1.6 3-1.3-1.2 4.6c-2 2-4.8 3-8.3 3s-6.3-1-8.3-3z', round: 'M12 4c4.4 0 8 3.2 8 8s-3.6 8-8 8-8-3.6-8-8 3.6-8 8-8z', lotus: 'M12 3c3 3 4.5 6.5 4 10.5-1.3 1-2.6 1.5-4 1.5s-2.7-.5-4-1.5C7.5 9.5 9 6 12 3zM3 9c3.5.5 6 3 6.8 7.5C6 17 3.8 15.2 3 9zm18 0c-.8 6.2-3 8-6.8 7.5C15 12 17.5 9.5 21 9zM4 18h16c-1.5 2-4.5 3-8 3s-6.5-1-8-3z', heart: 'M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z' }[id];
-  return svgIcon(d);
+  if (CHARS[id]) { const c = charCanvas(id, { size: 44 }); c.classList.add('big'); return c; }
+  return iconEl(TPL_ICON[id] || 'tpl');
 }
+const askReset = (title) => ask(title, 'ที่ปั้นไว้จะหายทั้งหมด', 'ตกลง');
 
 function renderTools() {
-  const box = $('#subtools'); box.innerHTML = ''; box.style.display = 'flex';
-  const old = document.querySelector('.swatches'); if (old) old.remove();
+  const box = $('#subtools'); box.innerHTML = ''; $('#tools').dataset.cat = tab;
+  document.querySelector('.swatches')?.remove();
   const sl = $('#sliders'), slS = $('#sl-size'), slF = $('#sl-strength'), sym = $('#tg-sym');
   sl.hidden = false; slS.hidden = false; slF.hidden = false; sym.hidden = false;
   const st = studio.state;
+  const add = (b, fn) => { b.addEventListener('click', fn); box.append(b); };
   if (tab === 'template') {
     sl.hidden = true;
-    for (const t of mod.TEMPLATES) {
-      const b = chip(t.th, st.template === t.id, tplIcon(t.id));
-      b.addEventListener('click', async () => {
-        if (studio.dirtyWork && !(await ask('เปลี่ยนเป็นทรง' + t.th + '?', 'ที่ปั้นไว้จะหายทั้งหมดนะ', 'เปลี่ยนเลย'))) return;
-        studio.reset(t.id); renderTools();
-      });
-      box.append(b);
-    }
-    box.append(Object.assign(document.createElement('span'), { className: 'chip-sep' }));
-    for (const [th, sx, sy, d] of RESIZE) { const b = chip(th, false, svgIcon(d)); b.addEventListener('click', () => studio.scaleAll(sx, sy)); box.append(b); }
-    const rs = chip('เริ่มใหม่', false, svgIcon('M12 4a8 8 0 1 1-7.4 5h2.2A6 6 0 1 0 12 6v3L7.5 5 12 1z'));
-    rs.addEventListener('click', async () => { if (await ask('เริ่มปั้นใหม่?', 'ที่ปั้นไว้จะหายทั้งหมดนะ', 'เริ่มใหม่')) { studio.reset(st.template); renderTools(); } });
-    box.append(rs);
+    for (const t of mod.TEMPLATES) add(tile(t.th, st.template === t.id, tplIcon(t.id)), async () => {
+      if (studio.dirtyWork && !(await askReset('เปลี่ยนเป็นทรง' + t.th + '?'))) return;
+      studio.reset(t.id); renderTools();
+    });
+    box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
+    for (const [ic, th, sx, sy] of RESIZE) add(tile(th, false, iconEl(ic)), () => studio.scaleAll(sx, sy));
+    add(tile('เริ่มใหม่', false, iconEl('reset'), 'danger'), async () => { if (await askReset('เริ่มปั้นใหม่?')) { studio.reset(st.template); renderTools(); } });
     return;
   }
-  const tools = tab === 'shape' ? SHAPE_TOOLS : tab === 'paint' ? PAINT_TOOLS : null;
-  if (tools) {
-    for (const [id, th, d] of tools) {
-      const b = chip(th, st.sub === id, d ? svgIcon(d) : gradIcon());
-      b.addEventListener('click', () => { studio.setTool(tab, id); renderTools(); if (id === 'slice') tip('ลากเส้นผ่านก้อน ส่วนที่เล็กกว่าจะถูกตัดออก'); });
-      box.append(b);
-    }
+  if (tab === 'shape' || tab === 'paint') {
+    for (const [id, th] of (tab === 'shape' ? SHAPE_TOOLS : PAINT_TOOLS)) add(tile(th, st.sub === id, id === 'gradient' ? gradIcon() : iconEl(id)), () => {
+      studio.setTool(tab, id); renderTools(); if (id === 'slice') tip('ลากเส้นผ่านก้อน ส่วนที่เล็กกว่าจะถูกตัดออก');
+    });
   } else if (tab === 'decor') {
-    for (const k of Object.keys(mod.DECOR)) {
-      const b = chip(mod.DECOR[k].th, st.sub === k, decorIcon(k));
-      b.addEventListener('click', () => { studio.setTool(tab, k); renderTools(); });
-      box.append(b);
-    }
-    const clr = chip('ล้างของแต่ง', false, svgIcon('M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z'));
-    clr.addEventListener('click', async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); }); box.append(clr);
+    for (const k of Object.keys(mod.DECOR)) add(tile(mod.DECOR[k].th, st.sub === k, decorIcon(k)), () => { studio.setTool(tab, k); renderTools(); });
     slF.hidden = true;
   } else if (tab === 'incense') {
-    const clr2 = () => { const c = chip('ล้างทั้งหมด', false, svgIcon('M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z')); c.addEventListener('click', async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); }); return c; };
-    queueMicrotask(() => box.append(clr2()));
     for (const [k, th] of Object.entries(mod.INCENSE)) {
-      const b = chip(th, st.sub === k, svgIcon(ITEM_ICON[k]));
-      const ic = studio.itemColor(k); if (ic) b.firstChild.style.color = ic;
-      b.addEventListener('click', () => { studio.setTool(tab, k); renderTools(); });
-      box.append(b);
+      const b = tile(th, st.sub === k, iconEl(k)); const ic = studio.itemColor(k);
+      if (ic && st.sub !== k) b.style.setProperty('--ia', ic);
+      add(b, () => { studio.setTool(tab, k); renderTools(); });
     }
     slF.hidden = true;
+  }
+  if (tab === 'decor' || tab === 'incense') {
+    box.append(Object.assign(document.createElement('span'), { className: 'tile-sep' }));
+    add(tile('ล้างทั้งหมด', false, iconEl('trash'), 'danger'), async () => { if (await ask('ล้างของแต่งทั้งหมด?', 'ตา ปาก สติกเกอร์ ธูป ดอกไม้ จะหายหมด', 'ล้างเลย')) studio.clearDecor(); });
   }
   if (tab === 'paint' && st.sub !== 'brush') slF.hidden = true;
   if (tab === 'shape' && st.sub === 'slice') { slS.hidden = true; slF.hidden = true; }
@@ -334,7 +313,7 @@ function openWish(shot, spot) {
   wishShot = shot; wishSpot = spot;
   $('#wish-img').src = shot.toDataURL ? shot.toDataURL('image/png') : shot.src;
   $('#wish-where').textContent = 'ลอยที่ ' + spot.name;
-  $('#wish-go').disabled = false; $('#wish-go').textContent = 'ลอยเลย';
+  $('#wish-go').disabled = false; $('#wish-go').querySelector('span').textContent = 'ลอยเลย';
   $('#modal-wish').hidden = false;
 }
 $('#wish-text').addEventListener('input', e => { $('#wish-count').textContent = e.target.value.length + '/60'; });
@@ -342,7 +321,7 @@ $('#wish-pub').addEventListener('click', e => { const b = e.currentTarget, on = 
 $('#wish-back').addEventListener('click', () => { $('#modal-wish').hidden = true; });
 let myLast = null;
 $('#wish-go').addEventListener('click', async () => {
-  const go = $('#wish-go'); go.disabled = true; go.textContent = 'กำลังลอย…';
+  const go = $('#wish-go'); go.disabled = true; go.querySelector('span').textContent = 'กำลังลอย…';
   try {
     const blob = await toUploadBlob(wishShot);
     const row = await data.float({ spot: wishSpot.id, blob, nickname: $('#wish-name').value, wish: $('#wish-text').value, isPublic: $('#wish-pub').classList.contains('on') });
@@ -351,7 +330,7 @@ $('#wish-go').addEventListener('click', async () => {
     if ($('#screen-studio').classList.contains('active')) { studio?.pause(); history.replaceState({ s: 'river' }, ''); } else history.pushState({ s: 'river' }, '');
     await openRiver(wishSpot, { own: row, ownSrc: $('#wish-img').src, noPush: true });
   } catch (err) {
-    console.error(err); go.disabled = false; go.textContent = 'ลองอีกครั้ง';
+    console.error(err); go.disabled = false; go.querySelector('span').textContent = 'ลองอีกครั้ง';
     toast('ลอยไม่สำเร็จ ลองใหม่อีกครั้งนะ');
   }
 });
