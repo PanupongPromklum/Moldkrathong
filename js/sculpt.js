@@ -1,7 +1,7 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=10';
+import { CHARS } from './characters.js?v=11';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -36,16 +36,34 @@ export const DECOR = {
   'eye-happy':  { th: 'ตายิ้ม', pair: true, size: .2,  draw: g => { g.strokeStyle = INK; g.lineWidth = 26; g.beginPath(); g.moveTo(-80, 30); g.quadraticCurveTo(0, -70, 80, 30); g.stroke(); } },
   'eye-sleep':  { th: 'ตาหลับ', pair: true, size: .2,  draw: g => { g.strokeStyle = INK; g.lineWidth = 24; g.beginPath(); g.moveTo(-80, -10); g.quadraticCurveTo(0, 60, 80, -10); g.stroke(); } },
   'eye-star':   { th: 'ตาดาว',  pair: true, size: .22, draw: g => { star(g, 110, 48); g.fillStyle = INK; g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(18, -22, 14, 0, 7); g.fill(); } },
+  'eye-heart':  { th: 'ตาหัวใจ', pair: true, size: .22, draw: g => { heart(g, 6.6); g.fillStyle = '#E8507F'; g.fill(); g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.ellipse(-38, -40, 16, 24, -.6, 0, 7); g.fill(); } },
+  'eye-sparkle':{ th: 'ตาวิ้ง',  pair: true, size: .22, draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, 0, 70, 96, 0, 0, 7); g.fill(); const r = g.createLinearGradient(0, 20, 0, 90); r.addColorStop(0, 'rgba(155,176,222,0)'); r.addColorStop(1, 'rgba(155,176,222,.9)'); g.fillStyle = r; g.beginPath(); g.ellipse(0, 0, 70, 96, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(24, -34, 22, 30, -.5, 0, 7); g.fill(); g.beginPath(); g.arc(-26, 34, 12, 0, 7); g.fill(); } },
+  'eye-cry':    { th: 'ตาซึ้ง',  pair: true, size: .22, draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, -20, 54, 72, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(18, -44, 14, 20, -.5, 0, 7); g.fill(); g.fillStyle = '#8FC8EC'; g.beginPath(); g.moveTo(40, 40); g.quadraticCurveTo(80, 90, 52, 116); g.quadraticCurveTo(20, 110, 40, 40); g.fill(); } },
+  'eye-lash':   { th: 'ตาขนตา', pair: true, size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 20; g.beginPath(); g.moveTo(-80, -10); g.quadraticCurveTo(0, 60, 80, -10); g.stroke(); g.lineWidth = 14; for (const [x, y, dx, dy] of [[-60, 10, -20, 34], [0, 26, 0, 40], [60, 10, 20, 34]]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx, y + dy); g.stroke(); } } },
+  'brows':      { th: 'คิ้ว',    pair: true, size: .2,  draw: g => { g.strokeStyle = INK; g.lineWidth = 26; g.beginPath(); g.moveTo(-80, 20); g.quadraticCurveTo(0, -40, 80, 10); g.stroke(); } },
+  'nose':       { th: 'จมูก',    size: .1,  draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, 0, 70, 52, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.ellipse(-22, -16, 18, 10, -.3, 0, 7); g.fill(); } },
+  'freckles':   { th: 'กระ',     pair: true, size: .2, draw: g => { g.fillStyle = '#B9785F'; for (const [x, y] of [[-50, -20], [0, 10], [50, -20], [-20, 40], [30, 40]]) { g.beginPath(); g.arc(x, y, 14, 0, 7); g.fill(); } } },
   'mouth-smile':{ th: 'ยิ้ม',    size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 22; g.beginPath(); g.moveTo(-80, -20); g.quadraticCurveTo(0, 70, 80, -20); g.stroke(); } },
   'mouth-open': { th: 'อ้าปาก', size: .22, draw: g => { g.beginPath(); g.moveTo(-80, -30); g.quadraticCurveTo(0, 130, 80, -30); g.closePath(); g.fillStyle = INK; g.fill(); g.save(); g.clip(); g.fillStyle = '#ee8fb0'; g.beginPath(); g.ellipse(0, 60, 46, 30, 0, 0, 7); g.fill(); g.restore(); } },
   'mouth-cat':  { th: 'ปากแมว', size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 20; g.beginPath(); g.moveTo(-90, -10); g.quadraticCurveTo(-45, 60, 0, -5); g.quadraticCurveTo(45, 60, 90, -10); g.stroke(); } },
   'mouth-o':    { th: 'ปากโอ',  size: .14, draw: g => { g.fillStyle = INK; g.beginPath(); g.ellipse(0, 0, 60, 74, 0, 0, 7); g.fill(); } },
+  'mouth-tongue':{ th: 'แลบลิ้น', size: .22, draw: g => { g.fillStyle = '#ee8fb0'; g.beginPath(); g.ellipse(18, 40, 38, 46, .1, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 6; g.beginPath(); g.moveTo(18, 14); g.lineTo(20, 60); g.stroke(); g.strokeStyle = INK; g.lineWidth = 22; g.beginPath(); g.moveTo(-80, -10); g.quadraticCurveTo(0, 50, 80, -10); g.stroke(); } },
+  'mouth-grin': { th: 'ยิ้มกว้าง', size: .24, draw: g => { g.beginPath(); g.moveTo(-90, -30); g.quadraticCurveTo(0, 130, 90, -30); g.closePath(); g.fillStyle = INK; g.fill(); g.save(); g.clip(); g.fillStyle = '#fff'; g.fillRect(-100, -40, 200, 34); g.fillStyle = '#ee8fb0'; g.beginPath(); g.ellipse(0, 70, 50, 30, 0, 0, 7); g.fill(); g.restore(); } },
+  'mouth-wavy': { th: 'ปากหยัก', size: .22, draw: g => { g.strokeStyle = INK; g.lineWidth = 20; g.beginPath(); g.moveTo(-90, 0); for (let i = 0; i <= 6; i++) g.lineTo(-90 + i * 30, i % 2 ? 22 : -10); g.stroke(); } },
   'blush':      { th: 'แก้มแดง', pair: true, size: .24, draw: g => { const r = g.createRadialGradient(0, 0, 0, 0, 0, 110); r.addColorStop(0, 'rgba(246,140,180,.9)'); r.addColorStop(1, 'rgba(246,140,180,0)'); g.fillStyle = r; g.beginPath(); g.ellipse(0, 0, 120, 80, 0, 0, 7); g.fill(); } },
   'heart':      { th: 'หัวใจ',  tint: true, size: .22, draw: g => { heart(g, 6.5); g.fillStyle = '#fff'; g.fill(); } },
   'star':       { th: 'ดาว',    tint: true, size: .22, draw: g => { star(g, 118, 52); g.fillStyle = '#fff'; g.fill(); } },
   'flower':     { th: 'ดอกไม้', tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (let i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); g.beginPath(); g.ellipse(0, -62, 40, 58, 0, 0, 7); g.fill(); g.restore(); } g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); } },
   'lotus':      { th: 'บัว',     tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (const [a, l] of [[-.9, .8], [.9, .8], [-.45, .95], [.45, .95], [0, 1]]) { g.save(); g.translate(0, 60); g.rotate(a); g.beginPath(); g.ellipse(0, -70 * l, 30, 70 * l, 0, 0, 7); g.fill(); g.restore(); } } },
   'moon':       { th: 'จันทร์',  tint: true, size: .22, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 100, 0, 7); g.fill(); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(45, -30, 88, 0, 7); g.fill(); g.globalCompositeOperation = 'source-over'; } },
+  'bow':        { th: 'โบว์',    tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-60, -90, -130, -40, -110, 20); g.bezierCurveTo(-100, 70, -40, 50, 0, 0); g.bezierCurveTo(40, 50, 100, 70, 110, 20); g.bezierCurveTo(130, -40, 60, -90, 0, 0); g.fill(); g.beginPath(); g.moveTo(-14, 10); g.lineTo(-50, 110); g.lineTo(-18, 96); g.lineTo(0, 20); g.lineTo(18, 96); g.lineTo(50, 110); g.lineTo(14, 10); g.fill(); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.arc(0, 4, 24, 0, 7); g.fill(); } },
+  'crown':      { th: 'มงกุฎ',   tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(-110, 70); g.lineTo(-120, -50); g.lineTo(-60, 0); g.lineTo(0, -80); g.lineTo(60, 0); g.lineTo(120, -50); g.lineTo(110, 70); g.closePath(); g.fill(); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-110, 40, 220, 30); for (const x of [-120, 0, 120]) { g.fillStyle = '#fff'; g.beginPath(); g.arc(x, x ? -56 : -88, 16, 0, 7); g.fill(); } } },
+  'note':       { th: 'โน้ต',    tint: true, size: .22, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(-40, 70, 44, 34, -.4, 0, 7); g.fill(); g.fillRect(-4, -90, 22, 160); g.beginPath(); g.moveTo(10, -90); g.bezierCurveTo(60, -80, 90, -40, 70, 0); g.bezierCurveTo(70, -30, 40, -50, 10, -50); g.fill(); } },
+  'clover':     { th: 'โคลเวอร์', tint: true, size: .22, draw: g => { g.fillStyle = '#fff'; for (let i = 0; i < 4; i++) { g.save(); g.rotate(i * Math.PI / 2 + Math.PI / 4); g.translate(0, -50); heart(g, 3.2); g.fill(); g.restore(); } g.fillRect(-6, 30, 12, 90); } },
+  'butterfly':  { th: 'ผีเสื้อ', tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; for (const sx of [-1, 1]) { g.save(); g.scale(sx, 1); g.beginPath(); g.ellipse(52, -36, 56, 64, .5, 0, 7); g.fill(); g.beginPath(); g.ellipse(42, 52, 36, 42, -.4, 0, 7); g.fill(); g.restore(); } g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(0, 4, 12, 70, 0, 0, 7); g.fill(); } },
+  'drop':       { th: 'หยดน้ำ',  tint: true, size: .2,  draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -110); g.bezierCurveTo(70, -20, 80, 30, 70, 50); g.arc(0, 40, 72, .1, Math.PI - .1); g.bezierCurveTo(-80, 30, -70, -20, 0, -110); g.fill(); g.fillStyle = 'rgba(255,255,255,.6)'; g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.ellipse(-26, 30, 12, 22, -.3, 0, 7); g.fill(); g.globalCompositeOperation = 'source-over'; } },
+  'cloud':      { th: 'เมฆ',     tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; g.beginPath(); for (const [x, y, r] of [[-60, 20, 50], [-10, -20, 64], [52, 6, 54], [90, 40, 34], [-96, 46, 30]]) { g.moveTo(x + r, y); g.arc(x, y, r, 0, 7); } g.fill(); g.fillRect(-96, 30, 186, 46); } },
+  'kanok':      { th: 'ลายไทย',  tint: true, size: .26, draw: g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(-90, 90); g.bezierCurveTo(-110, 0, -40, -40, 10, -30); g.bezierCurveTo(-30, -60, -10, -110, 40, -120); g.bezierCurveTo(10, -90, 30, -60, 70, -60); g.bezierCurveTo(50, -40, 70, -10, 100, 0); g.bezierCurveTo(60, 10, 40, 40, 50, 80); g.bezierCurveTo(10, 40, -40, 40, -90, 90); g.fill(); g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(-10, 20, 26, 0, 7); g.fill(); } },
   'sparkle':    { th: 'วิบวับ', tint: true, size: .2,  draw: g => { star(g, 120, 22, 4); g.fillStyle = '#fff'; g.fill(); } },
 };
 export const INCENSE = {
@@ -148,7 +166,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   // photo texture support: uv + per-vertex "how much photo shows" (front = 1, sides/back = 0)
   const UV = new Float32Array(NV * 2); geo.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
   const TM = new Float32Array(NV); geo.setAttribute('texMix', new THREE.BufferAttribute(TM, 1));
-  let tex = null, texCv = null, texG = null, texK = null, texDirty = false;
+  let photoTex = null, texCv = null, texG = null, texK = null, texDirty = false;
   const clayMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5 });
   clayMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float texMix;\nvarying float vTexMix;')
@@ -237,10 +255,10 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       texK = photo.uvScale.u / s;                                        // uv units per world unit (x)
       texCv = document.createElement('canvas'); texCv.width = photo.texture.width; texCv.height = photo.texture.height;
       texG = texCv.getContext('2d', { willReadFrequently: true }); texG.drawImage(photo.texture, 0, 0);
-      tex?.dispose(); tex = new THREE.CanvasTexture(texCv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-      clayMat.map = tex; clayMat.needsUpdate = true;
+      photoTex?.dispose(); photoTex = new THREE.CanvasTexture(texCv); photoTex.colorSpace = THREE.SRGBColorSpace; photoTex.anisotropy = 4;
+      clayMat.map = photoTex; clayMat.needsUpdate = true;
     } else {
-      if (clayMat.map) { clayMat.map = null; clayMat.needsUpdate = true; tex?.dispose(); tex = null; texCv = texG = null; }
+      if (clayMat.map) { clayMat.map = null; clayMat.needsUpdate = true; photoTex?.dispose(); photoTex = null; texCv = texG = null; }
       gradientFill(stops);
     }
     clearDecorObjs(); baseMat.color.set('#ECE9F7');
@@ -270,7 +288,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     clearDecorObjs(); for (const d of s.decor) addDecor(d.kind, d.vi, d.scale, d.color, d.base);
     geoDirty = true; colDirty = true;
   }
-  function pushUndo() { undoStack.push(snap()); while (undoStack.length > (tex ? 12 : MAX_UNDO)) undoStack.shift(); redoStack.length = 0; onChange(); }
+  function pushUndo() { undoStack.push(snap()); while (undoStack.length > (photoTex ? 12 : MAX_UNDO)) undoStack.shift(); redoStack.length = 0; onChange(); }
   function undo() { if (!undoStack.length) return; redoStack.push(snap()); restore(undoStack.pop()); onChange(); }
   function redo() { if (!redoStack.length) return; undoStack.push(snap()); restore(redoStack.pop()); onChange(); }
 
@@ -549,7 +567,8 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
     const h = ray.intersectObjects([clay, base], false)[0];
     if (!h) return null;
     const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
-    return { obj: h.object === clay ? 'clay' : 'base', point: h.point.clone(), normal: n, uv: h.object === clay && h.uv ? h.uv.clone() : null };
+    const tm = h.object === clay && h.face ? (TM[h.face.a] + TM[h.face.b] + TM[h.face.c]) / 3 : 0;
+    return { obj: h.object === clay ? 'clay' : 'base', point: h.point.clone(), normal: n, uv: h.object === clay && h.uv && tm > .05 ? h.uv.clone() : null };
   }
   function showCursor(hit) {
     cursor.visible = true; cursor.position.copy(hit.point).addScaledVector(hit.normal, .01);
@@ -571,7 +590,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       if (hit.obj === 'base') { baseMat.color.set(st.color); dirty = true; return; }
       paint(hit.point.x, hit.point.y, hit.point.z, false);
       if (hit.uv) texPaint(hit.uv.x, hit.uv.y);
-      if (tex && st.sym && Math.abs(hit.point.x) > radius() * .4) { const vi = nearestVertex(-hit.point.x, hit.point.y, hit.point.z); if (TM[vi] > 0) texPaint(UV[vi * 2], UV[vi * 2 + 1]); }
+      if (photoTex && st.sym && Math.abs(hit.point.x) > radius() * .4) { const vi = nearestVertex(-hit.point.x, hit.point.y, hit.point.z); if (TM[vi] > .05) texPaint(UV[vi * 2], UV[vi * 2 + 1]); }
       if (st.sym && Math.abs(hit.point.x) > radius() * .4) paint(hit.point.x, hit.point.y, hit.point.z, true);
     }
     showCursor(hit);
@@ -598,7 +617,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       if (hit.obj === 'base') baseMat.color.set(st.color);
       else if (sub === 'fill') { for (let i = 0; i < NV; i++) { C[i * 3] = paintCol.r; C[i * 3 + 1] = paintCol.g; C[i * 3 + 2] = paintCol.b; } colDirty = true; }
       else gradientFill(BRAND);
-      if (tex && hit.obj !== 'base') { TM.fill(0); geo.attributes.texMix.needsUpdate = true; }   // a full fill covers the photo (undo brings it back)
+      if (photoTex && hit.obj !== 'base') { TM.fill(0); geo.attributes.texMix.needsUpdate = true; }   // a full fill covers the photo (undo brings it back)
       dirty = true; return 'tap';
     }
     place(hit); return 'tap';
@@ -711,7 +730,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       for (const d of decor) updateDecor(d);
       geoDirty = false; dirty = true;
     }
-    if (texDirty && tex) { tex.needsUpdate = true; texDirty = false; dirty = true; }
+    if (texDirty && photoTex) { photoTex.needsUpdate = true; texDirty = false; dirty = true; }
     if (colDirty) { geo.attributes.color.needsUpdate = true; colDirty = false; dirty = true; }
     if (flames.length && frameN % 2 === 0) {
       const s = 1 + Math.sin(t * .013) * .06 + Math.sin(t * .031) * .04;

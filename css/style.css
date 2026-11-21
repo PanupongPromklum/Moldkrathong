@@ -148,7 +148,7 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
 .tools { flex: none; background: var(--surface); border-radius: var(--r-card) var(--r-card) 0 0; padding: 14px 0 calc(4px + var(--safe-b)); z-index: 3; }
 .tools[data-cat=template] { --cat: var(--teal); } .tools[data-cat=shape] { --cat: var(--lilac); }
 .tools[data-cat=paint] { --cat: var(--pink); } .tools[data-cat=decor] { --cat: var(--peri); } .tools[data-cat=incense] { --cat: var(--warm); }
-.tiles { display: flex; gap: 8px; overflow-x: auto; padding: 0 14px 12px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.tiles { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 10px 14px 12px; margin-top: -8px; scrollbar-width: none; scroll-snap-type: x proximity; }
 .tiles::-webkit-scrollbar, .swatches::-webkit-scrollbar, .pills::-webkit-scrollbar { display: none; }
 .tile { flex: none; width: 64px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--muted); scroll-snap-align: start; --ia: var(--cat); --ib: var(--cream); }
 .tile-ico { width: var(--tile); height: var(--tile); border-radius: var(--r-tile); background: var(--raised); display: grid; place-items: center; transition: transform .35s var(--spring), background .2s; overflow: hidden; }
@@ -160,7 +160,7 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
 .tile.active .tile-ico { background: var(--cat); transform: translateY(-3px); box-shadow: 0 8px 18px color-mix(in srgb, var(--cat) 45%, transparent); animation: wiggle .55s var(--spring); }
 .tile.danger { --ia: var(--pink); --ib: var(--cream); }
 .tile-sep { flex: none; width: 2px; height: var(--tile); border-radius: 2px; background: var(--line); margin: 0 2px; }
-.swatches { display: flex; gap: 10px; padding: 0 14px 12px; overflow-x: auto; scrollbar-width: none; }
+.swatches { display: flex; gap: 10px; padding: 6px 14px 12px; margin-top: -6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .sw { flex: none; width: var(--ctl); height: var(--ctl); border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); transition: transform .2s var(--ease); }
 .sw:active { transform: scale(.88); }
 .sw.active { box-shadow: 0 0 0 3px var(--cream); }
@@ -323,3 +323,11 @@ canvas { -webkit-touch-callout: none; touch-action: none; }
 .vb-sym:active { transform: scale(.88); }
 .brush-preview { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 2; border-radius: 50%; border: 2px dashed var(--cream); background: color-mix(in srgb, var(--cat) 25%, transparent); pointer-events: none; box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
 .brush-preview[hidden] { display: none; }
+
+.tiles.dragging, .swatches.dragging, .pills.dragging { cursor: grabbing; scroll-snap-type: none; }
+.tiles.dragging *, .swatches.dragging * { pointer-events: none; }
+@media (pointer: fine) {
+  .tiles, .swatches, .pills { cursor: grab; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+  .tiles::-webkit-scrollbar, .swatches::-webkit-scrollbar, .pills::-webkit-scrollbar { display: block; height: 6px; }
+  .tiles::-webkit-scrollbar-thumb, .swatches::-webkit-scrollbar-thumb, .pills::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 6px; }
+}

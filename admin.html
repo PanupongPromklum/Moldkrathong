@@ -23,6 +23,7 @@
   .card .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
   .card button { height: 32px; border-radius: var(--r-pill); background: var(--glass-bg-2); font-size: 12px; }
   .card button.red { background: #EB92B3; color: var(--ink); font-weight: 600; }
+  .tag.photo { background: rgba(155,176,222,.3); }
   .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: rgba(235,146,179,.25); color: #fff; }
   .login { max-width: 340px; margin: 18vh auto 0; text-align: center; }
   .login .field { text-align: center; }
@@ -43,7 +44,7 @@
   <div id="panel" hidden>
     <div class="brand">Mold<span>krathong</span> · แอดมิน</div>
     <div class="bar">
-      <select id="filter"><option value="reported">ถูกรายงาน / ซ่อนอยู่</option><option value="hidden">ซ่อนอยู่</option><option value="all">ทั้งหมด (ล่าสุด 300)</option></select>
+      <select id="filter"><option value="reported">ถูกรายงาน / ซ่อนอยู่</option><option value="hidden">ซ่อนอยู่</option><option value="photo">จากรูป (คะแนนน่าสงสัยก่อน)</option><option value="all">ทั้งหมด (ล่าสุด 300)</option></select>
       <select id="spot"><option value="">ทุกจุด</option></select>
       <button class="btn-ghost" id="reload" style="height:36px;font-size:14px">โหลดใหม่</button>
       <button class="btn-ghost" id="clear" style="height:36px;font-size:14px">ล้างทั้งจุดนี้</button>
@@ -53,8 +54,8 @@
   </div>
 </div>
 <script type="module">
-import { SUPABASE, SPOTS } from './js/config.js?v=10';
-import { imageUrl } from './js/data.js?v=10';
+import { SUPABASE, SPOTS } from './js/config.js?v=11';
+import { imageUrl } from './js/data.js?v=11';
 const $ = s => document.querySelector(s);
 let code = sessionStorage.getItem('mk-admin') || '';
 const rpc = async (fn, body) => {
@@ -72,7 +73,7 @@ async function load() {
   $('#grid').innerHTML = rows.map(k => `
     <div class="card ${k.hidden ? 'hid' : ''}" data-id="${k.id}" data-dev="${esc(k.device_id)}">
       <img src="${imageUrl(k.image_path)}" loading="lazy" alt="">
-      <b>${esc(k.nickname) || 'ไม่ประสงค์ออกนาม'} ${k.hidden ? '<span class="tag">ซ่อนอยู่</span>' : ''} ${k.report_count ? `<span class="tag">รายงาน ${k.report_count}</span>` : ''}</b>
+      <b>${esc(k.nickname) || 'ไม่ประสงค์ออกนาม'} ${k.hidden ? '<span class="tag">ซ่อนอยู่</span>' : ''} ${k.report_count ? `<span class="tag">รายงาน ${k.report_count}</span>` : ''} ${k.from_photo ? `<span class="tag photo">จากรูป${k.nsfw != null ? ' · ' + Math.round(k.nsfw * 100) + '%' : ''}</span>` : ''}</b>
       <p>${k.wish ? '“' + esc(k.wish) + '”' : k.wish_private ? '(ในใจ) ' + esc(k.wish_private) : '-'}</p>
       <p>${spotName(k.spot_id)} · ${new Date(k.created_at).toLocaleString('th-TH')}</p>
       <div class="row">

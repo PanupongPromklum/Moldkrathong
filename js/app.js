@@ -1,14 +1,14 @@
 // Moldkrathong — screens and UI wiring.
-import { SPOTS, STUDIO, READY } from './config.js?v=10';
-import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=10';
-import { createMap } from './map.js?v=10';
-import { makeCard, makeStory, BACKDROPS } from './card.js?v=10';
-import * as data from './data.js?v=10';
-import { createRiver } from './river.js?v=10';
-import { icon, iconEl } from './icons.js?v=10';
-import { paintBackdrop, createLife } from './scene.js?v=10';
-import { sfx, unlock, isOn, setOn } from './audio.js?v=10';
-import * as photo from './photo.js?v=10';
+import { SPOTS, STUDIO, READY } from './config.js?v=11';
+import { CHAR_KEYS, CHARS, HELPERS, drawChar, charCanvas } from './characters.js?v=11';
+import { createMap } from './map.js?v=11';
+import { makeCard, makeStory, BACKDROPS } from './card.js?v=11';
+import * as data from './data.js?v=11';
+import { createRiver } from './river.js?v=11';
+import { icon, iconEl } from './icons.js?v=11';
+import { paintBackdrop, createLife } from './scene.js?v=11';
+import { sfx, unlock, isOn, setOn } from './audio.js?v=11';
+import * as photo from './photo.js?v=11';
 
 const $ = (s) => document.querySelector(s);
 const show = (id) => {
@@ -16,9 +16,21 @@ const show = (id) => {
 };
 
 /* ---------------- intro ---------------- */
+// desktop: let the mouse wheel and click-drag scroll the sideways rows (touch already swipes)
+function dragScroll(el) {
+  if (!el || el.dataset.ds) return; el.dataset.ds = '1';
+  el.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) { el.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+  let sx = 0, sl = 0, down = false, moved = false;
+  el.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') return; down = true; moved = false; sx = e.clientX; sl = el.scrollLeft; });
+  el.addEventListener('pointermove', (e) => { if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 5) { moved = true; el.scrollLeft = sl - dx; el.classList.add('dragging'); } });
+  const end = () => { down = false; setTimeout(() => el.classList.remove('dragging'), 0); };
+  el.addEventListener('pointerup', end); el.addEventListener('pointerleave', end);
+  el.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+}
 // put a duotone icon in front of every element that asks for one
 function decorate(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (!el.querySelector(':scope > .ico')) el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); }); }
 decorate();
+dragScroll(document.getElementById('subtools')); dragScroll(document.getElementById('bg-chips'));
 // sound: unlock on the first touch, soft tick on every button, toggles anywhere
 document.addEventListener('pointerdown', unlock, { once: true, capture: true });
 document.addEventListener('click', (e) => { if (e.target.closest('button, a.btn-primary, a.btn-cream')) sfx('tap'); }, true);
@@ -169,7 +181,7 @@ function renderTools() {
   if (tab === 'template') {
     slS.hidden = true; slF.hidden = true; sl.hidden = false; $('#sl-base').hidden = false; $('#in-base').value = studio.baseSize;
     $('#vb-size').hidden = true; $('#vb-strength').hidden = true;
-    add(tile('จากรูป', st.template === 'photo', iconEl('photo')), () => { $('#photo-file').value = ''; $('#photo-file').click(); });
+    add(tile('จากรูป', st.template === 'photo', iconEl('photo')), () => { loadNsfw(); $('#photo-file').value = ''; $('#photo-file').click(); });
     for (const t of mod.TEMPLATES) add(tile(t.th, st.template === t.id, tplIcon(t.id)), async () => {
       if (studio.dirtyWork && !(await askReset('เปลี่ยนเป็นทรง' + t.th + '?'))) return;
       studio.reset(t.id); renderTools();
@@ -213,7 +225,7 @@ function renderTools() {
     const inp = document.createElement('input'); inp.type = 'color'; inp.value = cur || paintColor;
     inp.addEventListener('change', () => { if (tab !== 'incense') paintColor = inp.value; studio.setColor(inp.value); renderTools(); });
     cu.append(inp); sw.append(cu);
-    box.after(sw);
+    box.after(sw); dragScroll(sw);
   }
 }
 
@@ -250,6 +262,26 @@ $('#tg-sym').addEventListener('click', e => { const b = e.currentTarget, on = !b
 $('#btn-undo').addEventListener('click', () => studio?.undo());
 $('#del-btn').addEventListener('click', () => studio?.deleteSelected());
 
+/* ---------------- basic nudity check (on device, NSFWJS) ---------------- */
+let nsfwLoading = null, photoNsfw = null, lastMeta = { photo: false, nsfw: null };
+function loadNsfw() {
+  if (nsfwLoading) return nsfwLoading;
+  nsfwLoading = new Promise((res) => {
+    if (window.nsfwjs) return res();
+    const sc = document.createElement('script'); sc.src = 'lib/nsfw/nsfwjs.min.js'; sc.onload = res; sc.onerror = res; document.head.append(sc);
+  }).then(() => (window.nsfwjs ? nsfwjs.load('lib/nsfw/', { size: 224 }) : null)).catch(() => null);
+  return nsfwLoading;
+}
+/** ok=false for nudity / explicit drawings. If the checker can't load, let it through (reports + admin still apply). */
+async function checkImage(el) {
+  try {
+    const m = await loadNsfw(); if (!m) return { ok: true, score: null };
+    const p = Object.fromEntries((await m.classify(el)).map(x => [x.className, x.probability]));
+    const score = Math.max(p.Porn || 0, p.Hentai || 0);
+    return { ok: !((p.Porn || 0) > .5 || (p.Hentai || 0) > .6), score: +score.toFixed(3) };
+  } catch (_) { return { ok: true, score: null }; }
+}
+
 /* ---------------- photo → shape ---------------- */
 let ph = null;   // { img, an, m, shape }
 function photoRefresh() {
@@ -267,7 +299,10 @@ $('#photo-file').addEventListener('change', async (e) => {
   try {
     const img = await photo.loadImage(f);
     const an = photo.analyze(img);
-    ph = { img, an }; $('#photo-th').value = Math.round(an.auto);
+    $('#photo-msg').textContent = 'กำลังตรวจรูป…';
+    const chk = await checkImage(img);
+    if (!chk.ok) { ph = null; photo.drawPreview($('#photo-cv'), img, an, null); $('#photo-msg').hidden = false; $('#photo-msg').textContent = 'รูปนี้ใช้ปั้นไม่ได้ ลองเลือกรูปอื่นนะ'; return; }
+    ph = { img, an, nsfw: chk.score }; $('#photo-th').value = Math.round(an.auto);
     requestAnimationFrame(photoRefresh);
   } catch (err) { console.error(err); $('#photo-msg').textContent = 'เปิดรูปนี้ไม่ได้ ลองรูปอื่นนะ'; }
 });
@@ -280,7 +315,7 @@ $('#photo-use').addEventListener('click', async () => {
   if (studio.dirtyWork && !(await ask('ใช้ทรงจากรูปนี้?', 'ที่ปั้นไว้จะหายทั้งหมด', 'ใช้เลย'))) return;
   const shape = photo.toShape(ph.an, ph.m, ph.img);
   $('#modal-photo').hidden = true;
-  studio.reset('photo', shape); studio.frontView(); renderTools();
+  studio.reset('photo', shape); photoNsfw = ph.nsfw ?? null; studio.frontView(); renderTools();
   tip('ได้ทรงจากรูปแล้ว ปั้นหรือแต่งต่อได้เลย');
 });
 
@@ -306,7 +341,7 @@ async function openStudio(spot) {
     drawChar($('#loading-ava'), 'diamond', { size: 64, mood: 'smile' });
     $('#stage-loading').hidden = false;
     try {
-      mod = await import('./sculpt.js?v=10');
+      mod = await import('./sculpt.js?v=11');
       studio = window.__mk = mod.createStudio($('#stage'), { onChange: syncButtons, onAction: (a) => sfx(a), onSelect: (name) => { const d = $('#del-pill'); d.hidden = !name; if (name) $('#del-name').textContent = name; } });
     } catch (err) {
       console.error(err);
@@ -341,6 +376,7 @@ $('#btn-done').addEventListener('click', async () => {
   studio.deselect?.(); studio.frontView(true);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   lastShot = studio.snapshot(900);
+  lastMeta = studio.state.template === 'photo' ? { photo: true, nsfw: photoNsfw } : { photo: false, nsfw: null };
   bg = currentSpot.id;
   $('#modal-done').hidden = false; sfx('chime');
   await refreshCard();
@@ -348,10 +384,10 @@ $('#btn-done').addEventListener('click', async () => {
 });
 $('#done-back').addEventListener('click', () => { $('#modal-done').hidden = true; });
 $('#done-keep').addEventListener('click', () => {
-  if (!lastShot || !keepMine(lastShot)) return toast('เก็บไม่ได้ ที่เก็บในเครื่องเต็ม');
+  if (!lastShot || !keepMine(lastShot, lastMeta)) return toast('เก็บไม่ได้ ที่เก็บในเครื่องเต็ม');
   $('#modal-done').hidden = true; toast('เก็บไว้ใน "กระทงของฉัน" แล้ว', 'ไปแผนที่', () => history.back());
 });
-$('#done-float').addEventListener('click', () => { $('#modal-done').hidden = true; openWish(lastShot, currentSpot); });
+$('#done-float').addEventListener('click', () => { $('#modal-done').hidden = true; openWish(lastShot, currentSpot, null, lastMeta); });
 $('#done-save').addEventListener('click', () => {
   if (!lastCard) return;
   lastCard.toBlob(async (blob) => {
@@ -382,8 +418,9 @@ function toUploadBlob(canvasOrImg) {
   return new Promise(res => c.toBlob(b => b && b.type === 'image/webp' ? res(b) : c.toBlob(res, 'image/png'), 'image/webp', .86));
 }
 let wishMine = null;
-function openWish(shot, spot, mineId = null) {
-  wishShot = shot; wishSpot = spot; wishMine = mineId;
+let wishMeta = { photo: false, nsfw: null };
+function openWish(shot, spot, mineId = null, meta = null) {
+  wishShot = shot; wishSpot = spot; wishMine = mineId; wishMeta = meta || { photo: false, nsfw: null };
   $('#wish-img').src = shot.toDataURL ? shot.toDataURL('image/png') : shot.src;
   $('#wish-where').textContent = 'ลอยที่ ' + spot.name;
   $('#wish-go').disabled = false; $('#wish-go').querySelector('span').textContent = 'ลอยเลย';
@@ -397,7 +434,13 @@ $('#wish-go').addEventListener('click', async () => {
   const go = $('#wish-go'); go.disabled = true; go.querySelector('span').textContent = 'กำลังลอย…';
   try {
     const blob = await toUploadBlob(wishShot);
-    const row = await data.float({ spot: wishSpot.id, blob, nickname: $('#wish-name').value, wish: $('#wish-text').value, isPublic: $('#wish-pub').classList.contains('on') });
+    let nsfw = wishMeta.nsfw;
+    if (wishMeta.photo) {   // check the final krathong image too before it goes public
+      const r = await checkImage(wishShot);
+      if (!r.ok) { go.disabled = false; go.querySelector('span').textContent = 'ลอยเลย'; $('#modal-wish').hidden = true; return toast('กระทงใบนี้ลอยไม่ได้ ลองปั้นใหม่นะ'); }
+      if (r.score != null) nsfw = Math.max(nsfw || 0, r.score);
+    }
+    const row = await data.float({ spot: wishSpot.id, blob, nickname: $('#wish-name').value, wish: $('#wish-text').value, isPublic: $('#wish-pub').classList.contains('on'), fromPhoto: wishMeta.photo, nsfw });
     if (wishMine) dropMine(wishMine);
     myLast = { row, shot: wishShot, spot: wishSpot, nickname: $('#wish-name').value.trim(), wish: $('#wish-pub').classList.contains('on') ? $('#wish-text').value.trim() : '' };
     $('#modal-wish').hidden = true; $('#wish-text').value = ''; $('#wish-count').textContent = '0/60';
@@ -413,11 +456,11 @@ $('#wish-go').addEventListener('click', async () => {
 /* ---------------- choose a krathong: mine (kept) + ready-made ---------------- */
 const MINE = 'mk-mine';
 const getMine = () => { try { return JSON.parse(localStorage.getItem(MINE) || '[]'); } catch (_) { return []; } };
-function keepMine(canvas) {
+function keepMine(canvas, meta = {}) {
   const k = Math.min(1, 420 / Math.max(canvas.width, canvas.height)), c = document.createElement('canvas');
   c.width = Math.round(canvas.width * k); c.height = Math.round(canvas.height * k); c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
   let url = c.toDataURL('image/webp', .86); if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/png');
-  const list = getMine(); list.unshift({ id: 'm' + Date.now(), img: url }); 
+  const list = getMine(); list.unshift({ id: 'm' + Date.now(), img: url, photo: !!meta.photo, nsfw: meta.nsfw ?? null });
   try { localStorage.setItem(MINE, JSON.stringify(list.slice(0, 8))); return true; } catch (_) { return false; }
 }
 function dropMine(id) { try { localStorage.setItem(MINE, JSON.stringify(getMine().filter(m => m.id !== id))); } catch (_) {} }
@@ -435,7 +478,8 @@ const pickFrom = (e) => {
   if (drop) { e.stopPropagation(); dropMine(drop.dataset.drop); openFree(freeSpot); return; }
   const b = e.target.closest('button'); if (!b) return;
   const im = b.querySelector('img'); if (!im.complete || !im.naturalWidth) return;
-  $('#modal-free').hidden = true; openWish(im, freeSpot, b.dataset.mine || null);
+  const mine = b.dataset.mine ? getMine().find(x => x.id === b.dataset.mine) : null;
+  $('#modal-free').hidden = true; openWish(im, freeSpot, b.dataset.mine || null, mine ? { photo: !!mine.photo, nsfw: mine.nsfw ?? null } : null);
 };
 $('#free-grid').addEventListener('click', pickFrom);
 $('#mine-grid').addEventListener('click', pickFrom);

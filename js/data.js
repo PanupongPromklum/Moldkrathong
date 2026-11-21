@@ -1,5 +1,5 @@
 // Data layer: Supabase (REST, no SDK) when configured, otherwise a local stand-in for testing.
-import { SUPABASE } from './config.js?v=10';
+import { SUPABASE } from './config.js?v=11';
 
 export const remote = !!(SUPABASE.url && SUPABASE.key) && !/[?&]local=1/.test(location.search);
 export const deviceId = (() => {
@@ -45,7 +45,7 @@ export async function counts() {
   const c = {}; for (const r of rows || []) c[r.spot_id] = Number(r.n); return c;
 }
 
-export async function float({ spot, blob, nickname, wish, isPublic }) {
+export async function float({ spot, blob, nickname, wish, isPublic, fromPhoto = false, nsfw = null }) {
   nickname = (nickname || '').trim().slice(0, 20); wish = (wish || '').trim().slice(0, 60);
   if (!remote) {
     const row = { id: 'local-' + Date.now(), spot_id: spot, image_path: await blobToData(blob), nickname, wish: isPublic ? wish : '', created_at: new Date().toISOString(), reports: 0, hidden: false };
@@ -54,7 +54,7 @@ export async function float({ spot, blob, nickname, wish, isPublic }) {
   const ext = blob.type === 'image/webp' ? 'webp' : 'png';
   const path = `${spot}/${(crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36))}.${ext}`;
   await call(`${SUPABASE.url}/storage/v1/object/krathong/${path}`, { method: 'POST', headers: H({ 'Content-Type': blob.type, 'x-upsert': 'false' }), body: blob });
-  const r = await rpc('float_krathong', { p_spot: spot, p_image: path, p_nickname: nickname, p_wish: wish, p_public: !!isPublic, p_device: deviceId });
+  const r = await rpc('float_krathong', { p_spot: spot, p_image: path, p_nickname: nickname, p_wish: wish, p_public: !!isPublic, p_device: deviceId, p_photo: !!fromPhoto, p_nsfw: nsfw });
   return Array.isArray(r) ? r[0] : r;
 }
 
