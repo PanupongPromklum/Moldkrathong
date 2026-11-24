@@ -1,7 +1,8 @@
 // Moldkrathong — sculpt studio. One soft clay mesh on a plain base, kept light for phones.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHARS } from './characters.js?v=16';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { CHARS } from './characters.js?v=17';
 
 export const BRAND = ['#7FA9B1', '#9BB0DE', '#CBA5D1', '#EB92B3'];
 const DETAIL = 30;          // ≈ 9.6k vertices / 19k triangles
@@ -13,9 +14,9 @@ const glow = (mat, key) => {
   mat.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float mkFr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 2.2);
-      totalEmissiveRadiance += diffuseColor.rgb * 0.07 + vec3(0.13) * mkFr;`);
+      totalEmissiveRadiance += diffuseColor.rgb * 0.02 + vec3(0.06) * mkFr;`);
   };
-  mat.customProgramCacheKey = () => key;
+  mat.customProgramCacheKey = () => key + '3';
   return mat;
 };
 
@@ -158,7 +159,7 @@ function flat(id, ph, t) {
   return { ph, r: sr * F.out(ph), h: h + (F.lift ? F.lift(ph) * rimness : 0) };
 }
 export function templateColors(id) {
-  return FLATS[id] ? FLATS[id].colors : id === 'krathong' || id === 'pointy' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : id === 'tier' ? ['#8FC7A9', '#CFE8D5', '#F3C6D8', '#FFE7A3'] : BRAND;
+  return FLATS[id] ? FLATS[id].colors : id === 'krathong' ? ['#7DB897', '#9FD2B7', '#C2E5D2', '#E4F4EA'] : id === 'pointy' ? ['#8FC7A9', '#B5DEC4', '#D7C3E3', '#EB92B3'] : id === 'lotus' ? ['#F3C6D8', '#EFA9C4', '#F6C2D6', '#FFE7A3'] : id === 'tier' ? ['#8FC7A9', '#CFE8D5', '#F3C6D8', '#FFE7A3'] : BRAND;
 }
 /** top-view outline (radius by angle) for the template tiles */
 export function outlineOf(id, ph) {
@@ -175,22 +176,36 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95;
+  // soft "clay toy" look: neutral tone mapping keeps pastels true, a studio room gives soft reflections,
+  // and one overhead light drops a real soft shadow onto the base
+  renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = .85;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .22; pmrem.dispose();
   const camera = new THREE.PerspectiveCamera(38, 1, .1, 60); scene.add(camera);
-  scene.add(new THREE.HemisphereLight('#d9defa', '#3b3566', 1.25));
-  const key = new THREE.DirectionalLight('#eef0ff', 1.7); key.position.set(-2.5, 3, 3); camera.add(key);
-  const rim = new THREE.DirectionalLight('#f3a9cb', 1.1); rim.position.set(3, 1.5, -3); camera.add(rim);
+  scene.add(new THREE.HemisphereLight('#e4e6ff', '#3a3466', .28));
+  const key = new THREE.DirectionalLight('#fff6ee', .4); key.position.set(-2.5, 3, 3); camera.add(key);
+  const rim = new THREE.DirectionalLight('#f3a9cb', .9); rim.position.set(3, 1.5, -3); camera.add(rim);
+  const sun = new THREE.DirectionalLight('#fff8f0', 2.1); sun.position.set(-3.2, 3.4, 1.4); sun.target.position.set(0, .4, 0);
+  sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.radius = 6; sun.shadow.bias = -.0006; sun.shadow.normalBias = .02;
+  Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2, bottom: -2, near: 1, far: 10 }); sun.shadow.camera.updateProjectionMatrix();
+  scene.add(sun, sun.target);
   const target = new THREE.Vector3(0, .85, 0);
   const view = { yaw: -.45, pitch: .3, dist: 6, fit: 6 };
 
   const piece = new THREE.Group(); scene.add(piece);
 
-  // plain minimal base
-  const baseGeo = new THREE.LatheGeometry([[0, 0], [.9, 0], [.99, .018], [1.03, .055], [1.01, .095], [.95, BASE_TOP], [0, BASE_TOP]].map(p => new THREE.Vector2(p[0], p[1])), 72);
-  const baseMat = glow(new THREE.MeshStandardMaterial({ color: '#ECE9F7', roughness: .62 }), 'mk-base');
-  const base = new THREE.Mesh(baseGeo, baseMat); piece.add(base);
+  // two-tone base: a soft white rim around a coloured plate (the plate takes the base colour)
+  const V2 = (a) => a.slice().reverse().map(p => new THREE.Vector2(p[0], p[1]));   // listed top-inside first; lathe wants bottom-up for outward normals
+  const rimGeo = new THREE.LatheGeometry(V2([[.8, BASE_TOP - .01], [.83, BASE_TOP + .012], [.88, BASE_TOP + .03], [.96, BASE_TOP + .028], [1.02, BASE_TOP], [1.045, .07], [1.03, .03], [.97, .004], [.9, 0], [0, 0]]), 96);
+  const plateGeo = new THREE.LatheGeometry(V2([[0, BASE_TOP], [.74, BASE_TOP], [.8, BASE_TOP - .006], [.82, BASE_TOP - .03]]), 96);
+  const rimMat = glow(new THREE.MeshPhysicalMaterial({ color: '#F5F3FB', roughness: .5, sheen: .5, sheenRoughness: .8, sheenColor: new THREE.Color('#ffffff') }), 'mk-rim');
+  const baseMat = glow(new THREE.MeshPhysicalMaterial({ color: '#CFC2EA', roughness: .55, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color('#ffffff') }), 'mk-base');
+  const base = new THREE.Group(); piece.add(base);
+  const rimMesh = new THREE.Mesh(rimGeo, rimMat), plate = new THREE.Mesh(plateGeo, baseMat);
+  for (const m of [rimMesh, plate]) { m.receiveShadow = true; m.castShadow = true; base.add(m); }
   let baseScale = 1;
 
   // clay
@@ -205,7 +220,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   const UV = new Float32Array(NV * 2); geo.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
   const TM = new Float32Array(NV); geo.setAttribute('texMix', new THREE.BufferAttribute(TM, 1));
   let photoTex = null, texCv = null, texG = null, texK = null, texDirty = false;
-  const clayMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5 });
+  const clayMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .52, sheen: .45, sheenRoughness: .75, sheenColor: new THREE.Color('#ffffff'), clearcoat: .12, clearcoatRoughness: .6 });
   clayMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float texMix;\nvarying float vTexMix;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexMix = texMix;');
@@ -214,10 +229,10 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       .replace('#include <color_fragment>', '#include <color_fragment>\n#ifdef USE_MAP\n diffuseColor.rgb = mix( diffuseColor.rgb, mkTex.rgb, vTexMix );\n#endif')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       float mkFr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 2.2);
-      totalEmissiveRadiance += diffuseColor.rgb * 0.07 + vec3(0.13) * mkFr;`);
+      totalEmissiveRadiance += diffuseColor.rgb * 0.02 + vec3(0.06) * mkFr;`);
   };
-  clayMat.customProgramCacheKey = () => 'mk-clay2';
-  const clay = new THREE.Mesh(geo, clayMat); piece.add(clay);
+  clayMat.customProgramCacheKey = () => 'mk-clay3';
+  const clay = new THREE.Mesh(geo, clayMat); clay.castShadow = true; clay.receiveShadow = true; piece.add(clay);
   // neighbours (for smoothing)
   const adjStart = new Uint32Array(NV + 1); let adjList;
   {
@@ -302,7 +317,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
       if (clayMat.map) { clayMat.map = null; clayMat.needsUpdate = true; photoTex?.dispose(); photoTex = null; texCv = texG = null; }
       gradientFill(stops);
     }
-    clearDecorObjs(); baseMat.color.set('#ECE9F7');
+    clearDecorObjs(); baseMat.color.set('#CFC2EA');
     undoStack.length = 0; redoStack.length = 0;
     if (fromP) { onAction('morph'); morph = { fromP, toP: P.slice(), fromC, toC: C.slice(), t0: performance.now() }; P.set(fromP); C.set(fromC); }
     firstTpl = false;
@@ -412,6 +427,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   function addDecor(kind, vi, scale, color, basePos, animate = false, t0 = 0) {
     const isInc = kind in INCENSE;
     const obj = isInc ? makeIncense(kind, color) : makeSticker(kind, color);
+    if (isInc) obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
     const d = { kind, vi, obj, scale, color, base: basePos, inc: isInc };
     obj.scale.setScalar(animate ? .001 : scale); if (animate) pops.push({ obj, s: scale, t0: t0 || performance.now() });
     piece.add(obj); decor.push(d); updateDecor(d); dirty = true;
@@ -658,7 +674,7 @@ export function createStudio(host, { onChange = () => {}, onSelect = () => {}, o
   }
   function pick(cx, cy) {
     setRay(cx, cy);
-    const h = ray.intersectObjects(base.visible ? [clay, base] : [clay], false)[0];
+    const h = ray.intersectObjects(base.visible ? [clay, rimMesh, plate] : [clay], false)[0];
     if (!h) return null;
     const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
     const tm = h.object === clay && h.face ? (TM[h.face.a] + TM[h.face.b] + TM[h.face.c]) / 3 : 0;

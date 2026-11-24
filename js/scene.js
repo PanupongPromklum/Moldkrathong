@@ -1,6 +1,6 @@
 // 2.5D moonlit scene shared by the intro, the river room and the save card.
 // paintBackdrop() draws the still layers once; createLife() animates stars, sky lanterns, moonlight and fireflies.
-import { CHAR_KEYS, charCanvas } from './characters.js?v=16';
+import { CHAR_KEYS, charCanvas } from './characters.js?v=17';
 
 const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 export const MORPH = { peri: '#9BB0DE', lilac: '#CBA5D1', pink: '#EB92B3', teal: '#7FA9B1', primary: '#5A68B5', ink: '#252941' };

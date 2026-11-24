@@ -1,6 +1,6 @@
 // Save card: transparent PNG, or the krathong floating at one of the spots (1080×1350, IG post size).
-import { SPOTS, STUDIO } from './config.js?v=16';
-import { paintBackdrop, createLife } from './scene.js?v=16';
+import { SPOTS, STUDIO } from './config.js?v=17';
+import { paintBackdrop, createLife } from './scene.js?v=17';
 
 export const BACKDROPS = [{ id: 'none', th: 'ไม่มีพื้นหลัง' }, ...SPOTS.map(s => ({ id: s.id, th: s.name }))];
 
@@ -35,15 +35,15 @@ export async function makeCard(shot, bgId, spot, story = null) {
   g.fillStyle = gr; g.fillText('krathong', 64 + mw, 110);
   g.textAlign = 'center';
   if (story) {
-    g.font = '400 40px Prompt, sans-serif'; g.fillStyle = 'rgba(236,230,255,.8)'; g.fillText((story.nickname ? story.nickname + ' ' : 'ฉัน') + 'ลอยกระทงที่', W / 2, 230);
-    g.font = '600 76px Prompt, sans-serif'; g.fillStyle = '#F4F2FA'; g.fillText(spot.name, W / 2, 320);
-    if (story.wish) { g.font = '400 44px Prompt, sans-serif'; g.fillStyle = '#F4F2FA'; wrap(g, '“' + story.wish + '”', W / 2, 1460, 860, 62); }
+    g.font = '400 40px "Noto Sans Thai", sans-serif'; g.fillStyle = 'rgba(236,230,255,.8)'; g.fillText((story.nickname ? story.nickname + ' ' : 'ฉัน') + 'ลอยกระทงที่', W / 2, 230);
+    g.font = '600 76px "Noto Sans Thai", sans-serif'; g.fillStyle = '#F4F2FA'; g.fillText(spot.name, W / 2, 320);
+    if (story.wish) { g.font = '400 44px "Noto Sans Thai", sans-serif'; g.fillStyle = '#F4F2FA'; wrap(g, '“' + story.wish + '”', W / 2, 1460, 860, 62); }
     pill(g, W / 2, H - 250, 'มาลอยด้วยกัน → ' + story.url);
-    g.font = '400 32px Prompt, sans-serif'; g.fillStyle = 'rgba(236,230,255,.65)'; g.fillText('ลอยกระทงออนไลน์ 2569 · ' + STUDIO.igName, W / 2, H - 150);
+    g.font = '400 32px "Noto Sans Thai", sans-serif'; g.fillStyle = 'rgba(236,230,255,.65)'; g.fillText('ลอยกระทงออนไลน์ 2569 · ' + STUDIO.igName, W / 2, H - 150);
     return c;
   }
-  g.font = '600 52px Prompt, sans-serif'; g.fillStyle = '#F4F2FA'; g.fillText(spot.name, W / 2, H - 150);
-  g.font = '400 30px Prompt, sans-serif'; g.fillStyle = 'rgba(236,230,255,.7)'; g.fillText('ลอยกระทงออนไลน์ · ' + STUDIO.igName, W / 2, H - 98);
+  g.font = '600 52px "Noto Sans Thai", sans-serif'; g.fillStyle = '#F4F2FA'; g.fillText(spot.name, W / 2, H - 150);
+  g.font = '400 30px "Noto Sans Thai", sans-serif'; g.fillStyle = 'rgba(236,230,255,.7)'; g.fillText('ลอยกระทงออนไลน์ · ' + STUDIO.igName, W / 2, H - 98);
   return c;
 }
 
@@ -53,7 +53,7 @@ function wrap(g, text, x, y, maxW, lh) {
   lines.push(line); lines.slice(0, 3).forEach((l, i) => g.fillText(l, x, y + i * lh));
 }
 function pill(g, x, y, text) {
-  g.font = '500 36px Prompt, sans-serif'; const w = g.measureText(text).width + 80, h = 84;
+  g.font = '500 36px "Noto Sans Thai", sans-serif'; const w = g.measureText(text).width + 80, h = 84;
   const gr = g.createLinearGradient(x - w / 2, 0, x + w / 2, 0); ['#9BB0DE', '#CBA5D1', '#EB92B3'].forEach((c, i) => gr.addColorStop(i / 2, c));
   g.fillStyle = gr; g.beginPath(); g.roundRect(x - w / 2, y - h / 2, w, h, h / 2); g.fill();
   g.fillStyle = '#252941'; g.fillText(text, x, y + 13);
